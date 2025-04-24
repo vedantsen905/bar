@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 
+// Define the Inventory Log Schema
 const inventoryLogSchema = new mongoose.Schema({
   productId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -11,8 +12,9 @@ const inventoryLogSchema = new mongoose.Schema({
     required: true
   },
   timestamp: {
-    type: String,
-    required: true
+    type: Date,  // Changed to Date for better handling of time values
+    required: true,
+    default: Date.now  // Defaults to current timestamp if not provided
   },
   transactionType: {
     type: String,
@@ -27,12 +29,32 @@ const inventoryLogSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  purchaseVendor: String,
-  purchaseReceiptNumber: String,
-  recordedBy: String,
-  notes: String
+  purchaseVendor: {
+    type: String,
+    required: false
+  },
+  purchaseReceiptNumber: {
+    type: String,
+    required: false
+  },
+  recordedBy: {
+    type: String,
+    required: false
+  },
+  notes: {
+    type: String,
+    required: false
+  }
 }, {
-  timestamps: true
+  timestamps: true  // Automatically adds createdAt and updatedAt fields
 });
 
-export const InventoryLog = mongoose.model("InventoryLog", inventoryLogSchema)
+// Avoid overwriting the model if it already exists
+let InventoryLog;
+try {
+  InventoryLog = mongoose.model('InventoryLog');
+} catch (error) {
+  InventoryLog = mongoose.model('InventoryLog', inventoryLogSchema);
+}
+
+export { InventoryLog };
