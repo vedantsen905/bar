@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -10,25 +11,16 @@ export default function DashboardRedirect() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    
     if (!token) {
-      // If no token is found, redirect to login page
       router.push('/login');
       return;
     }
 
-    // Decode token to extract role information
     const payload = JSON.parse(atob(token.split('.')[1]));
-
-    // Check role and redirect to appropriate dashboard
     if (payload.role === 'admin') {
       router.push('/dashboard/admin');
-    } else if (payload.role === 'user') {
-      router.push('/dashboard/user');
     } else {
-      // If role is unknown or invalid, log out
-      localStorage.removeItem('token');
-      router.push('/login');
+      router.push('/dashboard/user');
     }
 
     setIsAuthenticated(true);
@@ -45,18 +37,22 @@ export default function DashboardRedirect() {
 
   // Wait for loading to finish and token to be checked
   if (loading) {
-    return <p>Loading...</p>;  // Show a loading message while checking token
+    return <p>Loading...</p>;
   }
 
-  if (isAuthenticated) {
-    return (
-      <div className="min-h-screen flex flex-col justify-center items-center">
-        {/* You can customize this content as needed */}
-        <h1 className="text-2xl mb-4">Welcome to the Dashboard!</h1>
-        
-      </div>
-    );
-  }
-
-  return null;  // Return nothing if the user is not authenticated and it's still loading
+  return (
+    <div className="min-h-screen flex flex-col justify-center items-center">
+      {isAuthenticated && (
+        <>
+          <h1 className="text-2xl mb-4">Welcome to the Dashboard!</h1>
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white py-2 px-6 rounded-lg hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-300 shadow-lg"
+          >
+            Logout
+          </button>
+        </>
+      )}
+    </div>
+  );
 }

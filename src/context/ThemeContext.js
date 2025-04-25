@@ -1,32 +1,11 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { ThemeProvider as NextThemesProvider } from 'next-themes';
 
-const ThemeContext = createContext();
-
-export const ThemeProvider = ({ children }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  useEffect(() => {
-    const storedTheme = localStorage.getItem('theme');
-    const prefersDark = storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    
-    setIsDarkMode(prefersDark);
-    document.documentElement.classList.toggle('dark', prefersDark);
-  }, []);
-
-  const toggleTheme = () => {
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    localStorage.setItem('theme', newMode ? 'dark' : 'light');
-    document.documentElement.classList.toggle('dark', newMode);
-  };
-
+export function ThemeProvider({ children }) {
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
+    <NextThemesProvider attribute="class" defaultTheme="system" enableSystem>
       {children}
-    </ThemeContext.Provider>
+    </NextThemesProvider>
   );
-};
-
-export const useTheme = () => useContext(ThemeContext);
+}

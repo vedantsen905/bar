@@ -1,14 +1,30 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('user'); // default to 'user'
   const [error, setError] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false); // Flag to check if the logged-in user is an admin
   const router = useRouter();
+
+  useEffect(() => {
+    // Fetch the current user information to check if they are an admin
+    const fetchCurrentUser = async () => {
+      const res = await fetch('/api/auth/me'); // Assume this returns current user info
+      const data = await res.json();
+      if (res.ok && data.role === 'admin') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+        router.push('/login'); // Redirect to login if not admin
+      }
+    };
+
+    fetchCurrentUser();
+  }, [router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,7 +32,7 @@ export default function RegisterPage() {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password, role }),
+      body: JSON.stringify({ username, email, password, role: 'user' }), // Role is hardcoded to 'user'
     });
 
     const data = await res.json();
@@ -68,32 +84,7 @@ export default function RegisterPage() {
           />
         </div>
 
-        <div className="mb-6">
-          <label className="text-white">Role</label>
-          <div className="mt-2">
-            <label className="text-white mr-4">
-              <input
-                type="radio"
-                value="user"
-                checked={role === 'user'}
-                onChange={() => setRole('user')}
-                className="mr-2"
-              />
-              User
-            </label>
-            <label className="text-white">
-              <input
-                type="radio"
-                value="admin"
-                checked={role === 'admin'}
-                onChange={() => setRole('admin')}
-                className="mr-2"
-              />
-              Admin
-            </label>
-          </div>
-        </div>
-
+        {/* Removed the role selection, only admins can create users */}
         <button type="submit" className="w-full bg-green-500 text-white py-2 rounded-lg">
           Register
         </button>

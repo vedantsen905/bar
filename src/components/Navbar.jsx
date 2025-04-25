@@ -2,33 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
-export default function Navbar() {
+export default function Navbar({ isLoggedIn, setIsLoggedIn, handleLogout }) {
   const router = useRouter();
   const [theme, setTheme] = useState('dark');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    // Theme Setup
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    setTheme(savedTheme);
-    document.documentElement.setAttribute('data-theme', savedTheme);
-
-    // Login Check from cookie
-    const cookieString = document.cookie;
-    const loggedIn = cookieString.includes('auth_token');
-    setIsLoggedIn(loggedIn);
-  }, []);
-
-  const handleLogout = async () => {
-    const res = await fetch('/api/auth/logout', { method: 'GET' });
-    if (res.ok) {
-      document.cookie = 'auth_token=; Max-Age=0; path=/'; // clear it from browser too
-      setIsLoggedIn(false);
-      router.push('/login');
-    }
-  };
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';

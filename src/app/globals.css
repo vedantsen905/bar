@@ -12,6 +12,32 @@ html[data-theme='light'] {
   --text-color: #1f1f1f;
   --primary-color: #4f83cc;
 }
+/* Default (light) theme */
+html {
+  --bg-color: #ffffff;
+  --text-color: #000000;
+}
+
+html.dark {
+  /* Dark theme colors */
+  --bg-color: #1f1f1f;
+  --text-color: #f1f1f1;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Arial', sans-serif;
+}
+
+button {
+  background-color: #4f83cc;
+  color: var(--text-color);
+}
+
+button:hover {
+  background-color: #2b64a8;
+}
 
 body {
   background-color: var(--bg-color);
