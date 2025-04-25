@@ -1,4 +1,3 @@
-// src/models/productModel.js
 import mongoose from 'mongoose';
 
 const productSchema = new mongoose.Schema({
@@ -10,4 +9,5 @@ const productSchema = new mongoose.Schema({
   timestamps: true
 });
 
-export const Product = mongoose.model('Product', productSchema);
+// ✅ Prevent OverwriteModelError
+export const Product = mongoose.models.Product || mongoose.model('Product', productSchema);

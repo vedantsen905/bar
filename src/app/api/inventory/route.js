@@ -1,5 +1,6 @@
 import { connectDB } from '@/lib/db';
 import { InventoryLog } from '@/models/inventoryLogModel';
+import { Product } from '@/models/ProductModel';
 
 // GET Route: Fetch all Inventory Logs
 export async function GET() {
@@ -24,16 +25,19 @@ export async function POST(req) {
 // PUT Route: Update an existing Inventory Log
 export async function PUT(req) {
   await connectDB();
-  const { id } = req.query;  // Get the log ID from the query parameters
-  const body = await req.json(); // Get the body of the request
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+  const body = await req.json();
 
-  // Validate incoming data
+  if (!id) {
+    return new Response(JSON.stringify({ error: 'Missing ID in query' }), { status: 400 });
+  }
+
   if (!body.productId || !body.quantityBottles) {
     return new Response(JSON.stringify({ error: 'Product ID and Quantity are required' }), { status: 400 });
   }
 
   try {
-    // Find and update the log by ID
     const updatedLog = await InventoryLog.findByIdAndUpdate(id, body, { new: true }).populate('productId');
     if (!updatedLog) {
       return new Response(JSON.stringify({ error: 'Log not found' }), { status: 404 });
@@ -47,10 +51,14 @@ export async function PUT(req) {
 // DELETE Route: Delete an existing Inventory Log
 export async function DELETE(req) {
   await connectDB();
-  const { id } = req.query;  // Get the log ID from the query parameters
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    return new Response(JSON.stringify({ error: 'Missing ID in query' }), { status: 400 });
+  }
 
   try {
-    // Find and delete the log by ID
     const deletedLog = await InventoryLog.findByIdAndDelete(id);
     if (!deletedLog) {
       return new Response(JSON.stringify({ error: 'Log not found' }), { status: 404 });

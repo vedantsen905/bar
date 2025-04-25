@@ -1,4 +1,3 @@
-// src/app/api/auth/login/route.js
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '@/models/User';
