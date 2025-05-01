@@ -1,34 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
-export default function Navbar() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [theme, setTheme] = useState('dark');
+export default function Navbar({ isLoggedIn, setIsLoggedIn, handleLogout }) {
   const router = useRouter();
+  const [theme, setTheme] = useState('dark');
 
-  // Initialize login state and theme
-  useEffect(() => {
-    // Check for token and theme on initial load
-    const token = localStorage.getItem('token');
-    setIsLoggedIn(!!token);
-    
-    // Check for saved theme preference
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    setTheme(savedTheme);
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  }, []);
-
-  // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setIsLoggedIn(false);
-    router.push('/');
-  };
-
-  // Toggle theme
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);

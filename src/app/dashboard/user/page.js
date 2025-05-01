@@ -5,15 +5,19 @@ import InventoryForm from '@/components/InventoryForm';
 import InventoryTable from '@/components/InventoryTable';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 export default function UserDashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false); // New state for success message
   const router = useRouter();
 
   const refreshInventory = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
+    setShowSuccessMessage(true); // Show success message when inventory is refreshed
+    setTimeout(() => setShowSuccessMessage(false), 3000); // Hide message after 3 seconds
   }, []);
 
   useEffect(() => {
@@ -71,6 +75,13 @@ export default function UserDashboard() {
         <ProductForm />
         <InventoryForm onSubmitSuccess={refreshInventory} />
       </div>
+
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="bg-green-500 text-white py-2 px-4 rounded-lg mb-4">
+          Inventory log submitted successfully!
+        </div>
+      )}
 
       <div className="bg-gray-700 shadow-md rounded-xl p-4">
         <InventoryTable refreshKey={refreshKey} />

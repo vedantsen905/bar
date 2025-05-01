@@ -20,76 +20,88 @@ export default function SalesSummary() {
 
   useEffect(() => {
     async function fetchData() {
-      const [productsRes, logsRes] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/inventory'),
-      ]);
-      const products = await productsRes.json();
-      const logs = await logsRes.json();
-
-      setProducts(products);
-      setLogs(logs);
-
-      const today = new Date().toISOString().split('T')[0];
-      let filteredLogs = logs;
-
-      if (filters.dateRange === 'today') {
-        filteredLogs = logs.filter((log) => log.date === today);
-      } else if (filters.dateRange === 'last7days') {
-        const last7Days = new Date();
-        last7Days.setDate(last7Days.getDate() - 7);
-        const last7DaysString = last7Days.toISOString().split('T')[0];
-        filteredLogs = logs.filter((log) => log.date >= last7DaysString);
-      } else if (filters.dateRange === 'thisMonth') {
-        const firstDayOfMonth = new Date(today);
-        firstDayOfMonth.setDate(1);
-        const firstDayOfMonthString = firstDayOfMonth.toISOString().split('T')[0];
-        filteredLogs = logs.filter((log) => log.date >= firstDayOfMonthString);
+      try {
+        const [productsRes, logsRes] = await Promise.all([
+          fetch('/api/products'),
+          fetch('/api/inventory'),
+        ]);
+  
+        const productsData = await productsRes.json();
+        const logsData = await logsRes.json();
+  
+        // Check if the response contains the products array
+        if (productsData && Array.isArray(productsData.products)) {
+          setProducts(productsData.products);
+        } else {
+          console.error("Fetched products is not an array:", productsData);
+        }
+  
+        setLogs(logsData);
+  
+        const today = new Date().toISOString().split('T')[0];
+        let filteredLogs = logsData;
+  
+        if (filters.dateRange === 'today') {
+          filteredLogs = logsData.filter((log) => log.date === today);
+        } else if (filters.dateRange === 'last7days') {
+          const last7Days = new Date();
+          last7Days.setDate(last7Days.getDate() - 7);
+          const last7DaysString = last7Days.toISOString().split('T')[0];
+          filteredLogs = logsData.filter((log) => log.date >= last7DaysString);
+        } else if (filters.dateRange === 'thisMonth') {
+          const firstDayOfMonth = new Date(today);
+          firstDayOfMonth.setDate(1);
+          const firstDayOfMonthString = firstDayOfMonth.toISOString().split('T')[0];
+          filteredLogs = logsData.filter((log) => log.date >= firstDayOfMonthString);
+        }
+  
+        const data = productsData.products
+          .map((product) => {
+            if (filters.product && product._id !== filters.product) return null;
+  
+            const productLogs = filteredLogs.filter(
+              (log) =>
+                log.productId?._id === product._id &&
+                (filters.transactionType === 'All' || log.transactionType === filters.transactionType)
+            );
+  
+            const sold = productLogs
+              .filter((log) => log.transactionType === 'Sales')
+              .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
+            const purchased = productLogs
+              .filter((log) => log.transactionType === 'Purchase')
+              .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
+            const opening = productLogs
+              .filter((log) => log.transactionType === 'Opening Stock')
+              .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
+            const remaining = Math.max(opening + purchased - sold, 0);
+  
+            const latestDate =
+              productLogs.length > 0
+                ? productLogs.reduce((latest, log) => (log.date > latest ? log.date : latest), productLogs[0].date)
+                : '-';
+  
+            return {
+              name: product.productName,
+              sold,
+              purchased,
+              remaining,
+              remainingLiters: (remaining * product.mlPerBottle) / 1000,
+              latestDate,
+              logs: productLogs,
+            };
+          })
+          .filter(Boolean);
+  
+        setSummary(data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
       }
-
-      const data = products
-        .map((product) => {
-          if (filters.product && product._id !== filters.product) return null;
-
-          const productLogs = filteredLogs.filter(
-            (log) =>
-              log.productId?._id === product._id &&
-              (filters.transactionType === 'All' || log.transactionType === filters.transactionType)
-          );
-
-          const sold = productLogs
-            .filter((log) => log.transactionType === 'Sales')
-            .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
-          const purchased = productLogs
-            .filter((log) => log.transactionType === 'Purchase')
-            .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
-          const opening = productLogs
-            .filter((log) => log.transactionType === 'Opening Stock')
-            .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
-          const remaining = Math.max(opening + purchased - sold, 0);
-
-          const latestDate =
-            productLogs.length > 0
-              ? productLogs.reduce((latest, log) => (log.date > latest ? log.date : latest), productLogs[0].date)
-              : '-';
-
-          return {
-            name: product.productName,
-            sold,
-            purchased,
-            remaining,
-            remainingLiters: (remaining * product.mlPerBottle) / 1000,
-            latestDate,
-            logs: productLogs,
-          };
-        })
-        .filter(Boolean);
-
-      setSummary(data);
     }
-
+  
     fetchData();
   }, [filters]);
+  
 
   const COLORS = ['#f87171', '#60a5fa', '#34d399'];
 

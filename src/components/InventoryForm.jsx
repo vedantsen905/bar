@@ -8,17 +8,17 @@ import {
   PackagePlus,
   Calendar,
   ShoppingCart,
-  ClipboardSignature,
   Receipt,
   User,
   StickyNote,
 } from 'lucide-react';
 
-export default function InventoryForm({ onSubmitSuccess }) {
+export default function InventoryForm({ onSubmitSuccess, onLogCreated }) {
+  const [refreshKey, setRefreshKey] = useState(0);
   const [form, setForm] = useState({
     productId: '',
     date: new Date(),
-    transactionType: 'Purchase',
+    transactionType: 'Opening Stock',
     quantityBottles: '',
     purchaseVendor: '',
     purchaseReceiptNumber: '',
@@ -27,19 +27,30 @@ export default function InventoryForm({ onSubmitSuccess }) {
   });
 
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const res = await fetch('/api/products');
         const data = await res.json();
-        setProducts(data);
-      } catch {
-        toast.error('Failed to fetch products.');
+
+        if (res.ok && Array.isArray(data.products)) {
+          setProducts(data.products);
+        } else {
+          setProducts([]);
+          toast.error('No products found in the response.');
+        }
+      } catch (error) {
+        setProducts([]);
+        toast.error('Error fetching products.');
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchProducts();
-  }, []);
+  }, [refreshKey]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -50,7 +61,7 @@ export default function InventoryForm({ onSubmitSuccess }) {
   };
 
   const handleSubmit = async () => {
-    const product = products.find(p => p._id === form.productId);
+    const product = products.find((p) => p._id === form.productId);
     const mlPerBottle = product ? product.mlPerBottle : 750;
 
     const payload = {
@@ -74,14 +85,16 @@ export default function InventoryForm({ onSubmitSuccess }) {
         setForm({
           productId: '',
           date: new Date(),
-          transactionType: 'Purchase',
+          transactionType: 'Opening Stock',
           quantityBottles: '',
           purchaseVendor: '',
           purchaseReceiptNumber: '',
           recordedBy: '',
           notes: '',
         });
+
         onSubmitSuccess?.();
+        onLogCreated?.(data.inventoryLog);
       } else {
         toast.error(data.error || 'Failed to save.');
       }
@@ -91,6 +104,10 @@ export default function InventoryForm({ onSubmitSuccess }) {
   };
 
   const isPurchase = form.transactionType === 'Purchase';
+
+  if (loading) {
+    return <div>Loading products...</div>;
+  }
 
   return (
     <motion.div
@@ -113,11 +130,15 @@ export default function InventoryForm({ onSubmitSuccess }) {
             className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
           >
             <option value="">Select Product</option>
-            {products.map((product) => (
-              <option key={product._id} value={product._id}>
-                {product.productName} ({product.category})
-              </option>
-            ))}
+            {Array.isArray(products) && products.length > 0 ? (
+              products.map((product) => (
+                <option key={product._id} value={product._id}>
+                  {product.productName} ({product.category})
+                </option>
+              ))
+            ) : (
+              <option disabled>No products available</option>
+            )}
           </select>
         </div>
 
@@ -143,7 +164,6 @@ export default function InventoryForm({ onSubmitSuccess }) {
           >
             <option value="Purchase">Purchase</option>
             <option value="Opening Stock">Opening Stock</option>
-            <option value="Sales">Sales</option>
             <option value="Closing Stock">Closing Stock</option>
           </select>
         </div>
@@ -192,22 +212,22 @@ export default function InventoryForm({ onSubmitSuccess }) {
                 <Receipt className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
             </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">Recorded By</label>
+              <div className="relative">
+                <input
+                  name="recordedBy"
+                  value={form.recordedBy}
+                  onChange={handleChange}
+                  placeholder="Recorded By"
+                  className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
+                />
+                <User className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
           </motion.div>
         )}
-
-        <div>
-          <label className="text-sm font-medium block mb-1">Recorded By</label>
-          <div className="relative">
-            <input
-              name="recordedBy"
-              value={form.recordedBy}
-              onChange={handleChange}
-              placeholder="Recorded By"
-              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-            />
-            <User className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
-          </div>
-        </div>
 
         <div>
           <label className="text-sm font-medium block mb-1">Notes</label>

@@ -10,15 +10,18 @@ export default function InventoryTable({ refreshKey }) {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [logsPerPage, setLogsPerPage] = useState(10);
-
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/inventory', { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to fetch inventory data');
       const data = await res.json();
-      setLogs(data);
-      setFiltered(data);
+  
+      // Sort by date in descending order
+      const sortedData = data.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+      setLogs(sortedData);
+      setFiltered(sortedData);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -26,7 +29,7 @@ export default function InventoryTable({ refreshKey }) {
       setLoading(false);
     }
   }, []);
-
+  
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs, refreshKey]);
@@ -80,7 +83,7 @@ export default function InventoryTable({ refreshKey }) {
         >
           <option value="All">All</option>
           <option value="Purchase">Purchase</option>
-          <option value="Sales">Sales</option>
+          
           <option value="Opening Stock">Opening Stock</option>
           <option value="Closing Stock">Closing Stock</option>
         </select>

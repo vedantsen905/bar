@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Tag, List, Package, FlaskConical } from 'lucide-react';
 
-export default function ProductForm() {
+export default function ProductForm({ onProductSaved }) {
   const [form, setForm] = useState({
     category: '',
     subCategory: '',
@@ -42,6 +42,11 @@ export default function ProductForm() {
     if (res.ok) {
       toast.success('Product saved!');
       setForm({ category: '', subCategory: '', productName: '', mlPerBottle: 750 });
+
+      // Trigger refresh in parent component
+      if (onProductSaved) {
+        onProductSaved();
+      }
     } else {
       toast.error(data.error || 'An error occurred');
     }

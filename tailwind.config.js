@@ -11,6 +11,9 @@ module.exports = {
         },
       },
     },
-    plugins: [],
+    plugins: [
+      require('@tailwindcss/forms'),
+      require('@tailwindcss/typography'),
+    ],
   };
   

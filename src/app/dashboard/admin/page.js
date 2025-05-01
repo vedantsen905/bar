@@ -1,23 +1,21 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import SalesSummary from '@/components/SalesSummary';
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ setIsLoggedIn }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-
+    
     if (!token) {
       router.push('/login');
       return;
     }
 
-    // Fetching role from an API endpoint to verify authorization
     fetch('/api/auth/verify', {
       method: 'POST',
       headers: {
@@ -38,10 +36,10 @@ export default function AdminDashboard() {
       .finally(() => setIsLoading(false));
   }, [router]);
 
-  const handleLogoutAndRedirect = () => {
-    // Clear the token and reset state on logout
+  const handleLogout = () => {
     localStorage.removeItem('token');
-    router.push('/'); // Redirect to the homepage or login
+    setIsLoggedIn(false); // Update the parent state to reflect logout
+    // router.push('/login'); // Redirect to the login page
   };
 
   if (isLoading) {
@@ -57,7 +55,7 @@ export default function AdminDashboard() {
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-semibold text-white">Admin Dashboard</h2>
         <button
-          onClick={handleLogoutAndRedirect}
+          onClick={handleLogout}
           className="text-red-500 hover:text-red-700 transition duration-300"
         >
           Logout
