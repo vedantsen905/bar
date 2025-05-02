@@ -4,7 +4,7 @@ import { Product } from '@/models/ProductModel';
 export async function GET() {
   await connectDB();
   const products = await Product.find();
-  return Response.json({ products }); // ✅ Wrapped in object
+  return Response.json({products}); // ✅ Wrapped in object
 }
 
 export async function POST(req) {

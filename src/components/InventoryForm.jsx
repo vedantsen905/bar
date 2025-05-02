@@ -13,135 +13,122 @@ import {
   StickyNote,
 } from 'lucide-react';
 
-export default function InventoryForm({ onSubmitSuccess, onLogCreated }) {
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [form, setForm] = useState({
-    productId: '',
-    date: new Date(),
-    transactionType: 'Opening Stock',
-    quantityBottles: '',
-    purchaseVendor: '',
-    purchaseReceiptNumber: '',
-    recordedBy: '',
-    notes: '',
-  });
+export default function InventoryForm({ onSubmitSuccess, onLogCreated, products = [] }) {
 
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+const [form, setForm] = useState({
+  productId: '',
+  date: new Date(),
+  transactionType: 'Opening Stock',
+  quantityBottles: '',
+  purchaseVendor: '',
+  purchaseReceiptNumber: '',
+  recordedBy: '',
+  notes: '',
+});
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await fetch('/api/products');
-        const data = await res.json();
+const [isSubmitting, setIsSubmitting] = useState(false); // Add state for form submission
+const [submitError, setSubmitError] = useState(''); // Error state if submission fails
 
-        if (res.ok && Array.isArray(data.products)) {
-          setProducts(data.products);
-        } else {
-          setProducts([]);
-          toast.error('No products found in the response.');
-        }
-      } catch (error) {
-        setProducts([]);
-        toast.error('Error fetching products.');
-      } finally {
-        setLoading(false);
-      }
-    };
+const handleChange = (e) => {
+  setForm({ ...form, [e.target.name]: e.target.value });
+};
 
-    fetchProducts();
-  }, [refreshKey]);
+const handleDateChange = (date) => {
+  setForm({ ...form, date });
+};
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+const handleSubmit = async () => {
+  if (isSubmitting) return; // Prevent submission if already submitting
+
+  setIsSubmitting(true); // Start submitting
+
+  const product = products.find((p) => p._id === form.productId);
+  const mlPerBottle = product ? product.mlPerBottle : 750;
+
+  const payload = {
+    ...form,
+    date: form.date.toISOString().split('T')[0],
+    quantityBottles: Number(form.quantityBottles),
+    quantityMl: Number(form.quantityBottles) * mlPerBottle,
+    timestamp: new Date().toISOString(),
   };
 
-  const handleDateChange = (date) => {
-    setForm({ ...form, date });
-  };
+  try {
+    const res = await fetch('/api/inventory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
-  const handleSubmit = async () => {
-    const product = products.find((p) => p._id === form.productId);
-    const mlPerBottle = product ? product.mlPerBottle : 750;
-
-    const payload = {
-      ...form,
-      date: form.date.toISOString().split('T')[0],
-      quantityBottles: Number(form.quantityBottles),
-      quantityMl: Number(form.quantityBottles) * mlPerBottle,
-      timestamp: new Date().toISOString(),
-    };
-
-    try {
-      const res = await fetch('/api/inventory', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+    const data = await res.json();
+    if (res.ok) {
+      toast.success('Inventory log saved!');
+      setForm({
+        productId: '',
+        date: new Date(),
+        transactionType: 'Opening Stock',
+        quantityBottles: '',
+        purchaseVendor: '',
+        purchaseReceiptNumber: '',
+        recordedBy: '',
+        notes: '',
       });
 
-      const data = await res.json();
-      if (res.ok) {
-        toast.success('Inventory log saved!');
-        setForm({
-          productId: '',
-          date: new Date(),
-          transactionType: 'Opening Stock',
-          quantityBottles: '',
-          purchaseVendor: '',
-          purchaseReceiptNumber: '',
-          recordedBy: '',
-          notes: '',
-        });
-
-        onSubmitSuccess?.();
-        onLogCreated?.(data.inventoryLog);
-      } else {
-        toast.error(data.error || 'Failed to save.');
-      }
-    } catch {
-      toast.error('Error submitting form.');
+      onSubmitSuccess?.();
+      onLogCreated?.(data.inventoryLog);
+    } else {
+      setSubmitError(data.error || 'Failed to save.');
+      toast.error(data.error || 'Failed to save.');
     }
-  };
-
-  const isPurchase = form.transactionType === 'Purchase';
-
-  if (loading) {
-    return <div>Loading products...</div>;
+  } catch {
+    setSubmitError('Error submitting form.');
+    toast.error('Error submitting form.');
+  } finally {
+    setIsSubmitting(false); // End submission
   }
+};
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-2xl shadow-lg max-w-md w-full space-y-4"
-    >
-      <h2 className="text-xl font-bold flex items-center gap-2">
-        <PackagePlus className="w-5 h-5" /> Add Inventory Log
-      </h2>
+const isPurchase = form.transactionType === 'Purchase';
 
-      <div className="space-y-3">
-        <div>
-          <label className="text-sm font-medium block mb-1">Product</label>
-          <select
-            name="productId"
-            value={form.productId}
-            onChange={handleChange}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-          >
-            <option value="">Select Product</option>
-            {Array.isArray(products) && products.length > 0 ? (
-              products.map((product) => (
-                <option key={product._id} value={product._id}>
-                  {product.productName} ({product.category})
-                </option>
-              ))
-            ) : (
-              <option disabled>No products available</option>
-            )}
-          </select>
-        </div>
+console.log('Received products:', products); // Debugging line to check products
 
+return (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
+    className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-2xl shadow-lg max-w-md w-full space-y-4"
+  >
+    <h2 className="text-xl font-bold flex items-center gap-2">
+      <PackagePlus className="w-5 h-5" /> Add Inventory Log
+    </h2>
+
+    <div className="space-y-3">
+      <div>
+        <label className="text-sm font-medium block mb-1">Product</label>
+        <select
+  name="productId"
+  value={form.productId}
+  onChange={handleChange}
+  className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
+>
+  <option value="">Select Product</option>
+  {/* Check if products array is not empty */}
+  {products && products.length > 0 ? (
+    products.map((product) => (
+      <option key={product._id} value={product._id}>
+        {product.productName} ({product.category})
+      </option>
+    ))
+  ) : (
+    <option disabled>No products available</option>
+  )}
+</select>
+
+
+      </div>
+
+        {/* Date Picker */}
         <div>
           <label className="text-sm font-medium block mb-1">Date</label>
           <div className="relative">
@@ -154,6 +141,7 @@ export default function InventoryForm({ onSubmitSuccess, onLogCreated }) {
           </div>
         </div>
 
+        {/* Transaction Type */}
         <div>
           <label className="text-sm font-medium block mb-1">Transaction Type</label>
           <select
@@ -168,6 +156,7 @@ export default function InventoryForm({ onSubmitSuccess, onLogCreated }) {
           </select>
         </div>
 
+        {/* Quantity */}
         <div>
           <label className="text-sm font-medium block mb-1">Quantity (in Bottles)</label>
           <input
@@ -179,12 +168,9 @@ export default function InventoryForm({ onSubmitSuccess, onLogCreated }) {
           />
         </div>
 
+        {/* Conditional Purchase Fields */}
         {isPurchase && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            className="space-y-3 overflow-hidden"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
             <div>
               <label className="text-sm font-medium block mb-1">Vendor</label>
               <div className="relative">
@@ -220,7 +206,7 @@ export default function InventoryForm({ onSubmitSuccess, onLogCreated }) {
                   name="recordedBy"
                   value={form.recordedBy}
                   onChange={handleChange}
-                  placeholder="Recorded By"
+                  placeholder="Your name"
                   className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
                 />
                 <User className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
@@ -229,6 +215,7 @@ export default function InventoryForm({ onSubmitSuccess, onLogCreated }) {
           </motion.div>
         )}
 
+        {/* Notes */}
         <div>
           <label className="text-sm font-medium block mb-1">Notes</label>
           <div className="relative">
@@ -245,11 +232,14 @@ export default function InventoryForm({ onSubmitSuccess, onLogCreated }) {
 
         <button
           onClick={handleSubmit}
+          disabled={isSubmitting} // Disable button during submission
           className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition"
         >
-          Submit Inventory
+          {isSubmitting ? 'Submitting...' : 'Submit Inventory'}
         </button>
+        {submitError && <p className="text-red-500 text-sm mt-2">{submitError}</p>}
       </div>
+      {/* </div> */}
     </motion.div>
   );
 }
