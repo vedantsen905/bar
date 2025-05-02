@@ -25,7 +25,7 @@ export default function RootLayout({ children }) {
       <head />
       <body className="bg-gray-800 text-gray-200 min-h-screen font-sans">
         <Toaster position="top-right" reverseOrder={false} />
-        <Navbar isLoggedIn={isLoggedIn} setIsLoggedIn={setIsLoggedIn} handleLogout={handleLogout} />
+        {/* <Navbar isLoggedIn={isLoggedIn} setIsLoggedIn={setIsLoggedIn} handleLogout={handleLogout} /> */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {children}
         </main>
