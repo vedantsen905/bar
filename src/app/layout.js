@@ -12,7 +12,7 @@ export default function RootLayout({ children }) {
         <Toaster position="top-right" reverseOrder={false} />
         
         {/* Navbar is now handling authentication state directly */}
-        <Navbar /> 
+        {/* <Navbar />  */}
         
         {/* Main content of the page */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
