@@ -50,6 +50,18 @@ export default function UserDashboard() {
     }
   }, []);
 
+  const calculateStock = (productId) => {
+    return inventory.reduce((total, item) => {
+      if (item.productId === productId) {
+        if (item.transactionType === 'Opening Stock' || item.transactionType === 'Purchase') {
+          return total + item.quantityBottles;
+        } else if (item.transactionType === 'Sale') {
+          return total - item.quantityBottles;
+        }
+      }
+      return total;
+    }, 0);
+  };
   const refreshInventory = useCallback(() => {
     setRefreshKey(prev => prev + 1);
     fetchData();
@@ -93,28 +105,39 @@ export default function UserDashboard() {
   }, [router]);
 
   const getFilteredData = () => {
-    switch(activeStatCard) {
+    switch (activeStatCard) {
       case 'activeInventory':
-        return inventory.filter(item => item.transactionType === 'Opening Stock');
-      case 'lowStock':
-        return products.filter(product => {
-          const stock = inventory.reduce((acc, item) => {
-            if (item.productId === product._id) {
-              return item.transactionType === 'Opening Stock' 
-                ? acc + item.quantityBottles 
-                : acc - item.quantityBottles;
-            }
-            return acc;
-          }, 0);
-          return stock < 5; // Threshold for low stock
-        });
-      case 'transactions':
-        return inventory.filter(item => item.transactionType === 'Purchase');
-      default: // totalProducts
-        return products;
-    }
-  };
+        return inventory
+          .filter(item => item.transactionType === 'Opening Stock' || item.transactionType === 'Purchase')
+          .map(item => ({
+            ...item,
+            cumulativeQuantity: calculateStock(item.productId)
+          }));
 
+      case 'lowStock':
+        return products
+          .filter(product => {
+            const stock = calculateStock(product._id);
+            return stock > 0 && stock < 5;
+          })
+          .map(product => ({
+            ...product,
+            currentStock: calculateStock(product._id)
+          }));
+
+      case 'transactions':
+        return inventory
+          .filter(item => item.transactionType === 'Purchase' || item.transactionType === 'Sale')
+          .map(item => ({
+            ...item,
+            cumulativeQuantity: calculateStock(item.productId)
+          }));
+
+      default:
+        return [];
+    }
+  };    
+  
   const filteredData = getFilteredData();
 
   // Calculate report data based on time range
@@ -188,6 +211,7 @@ export default function UserDashboard() {
   };
 
   const { movementData, categoryData } = prepareChartData();
+   
 
   // Color palette for charts
   const COLORS = [
@@ -453,225 +477,230 @@ export default function UserDashboard() {
         {activeTab === 'dashboard' && (
           <>
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {[
-                { 
-                  id: 'totalProducts',
-                  title: 'Total Products', 
-                  value: products.length, 
-                  icon: <FiPackage className="text-indigo-400" size={20} />, 
-                  color: 'from-indigo-500 to-indigo-600' 
-                },
-                { 
-                  id: 'activeInventory',
-                  title: 'Active Inventory', 
-                  value: inventory.filter(i => i.transactionType === 'Opening Stock').length, 
-                  icon: <FiPlusCircle className="text-purple-400" size={20} />, 
-                  color: 'from-purple-500 to-purple-600' 
-                },
-                { 
-                  id: 'lowStock',
-                  title: 'Low Stock', 
-                  value: products.filter(p => {
-                    const stock = inventory.reduce((acc, item) => {
-                      if (item.productId === p._id) {
-                        return item.transactionType === 'Opening Stock' 
-                          ? acc + item.quantityBottles 
-                          : acc - item.quantityBottles;
-                      }
-                      return acc;
-                    }, 0);
-                    return stock < 5;
-                  }).length, 
-                  icon: <FiBarChart2 className="text-amber-400" size={20} />, 
-                  color: 'from-amber-500 to-amber-600' 
-                },
-                { 
-                  id: 'transactions',
-                  title: 'Transactions', 
-                  value: inventory.filter(i => i.transactionType === 'Purchase').length, 
-                  icon: <FiBarChart2 className="text-emerald-400" size={20} />, 
-                  color: 'from-emerald-500 to-emerald-600' 
-                }
-              ].map((stat) => (
-                <motion.div
-                  key={stat.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setActiveStatCard(stat.id)}
-                  className={`p-5 rounded-2xl bg-gradient-to-br ${stat.color} text-white shadow-lg cursor-pointer transition-all
-                    ${activeStatCard === stat.id ? 'ring-2 ring-white/50' : ''}`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-sm font-medium opacity-80">{stat.title}</h3>
-                      <p className="text-3xl font-bold mt-2">{stat.value}</p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-white/10">
-                      {stat.icon}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
+            
+            {/* // Stats Cards - Updated section */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+  {[
+    { 
+      id: 'activeInventory',
+      title: 'Active Inventory', 
+      value: inventory.reduce((acc, item) => {
+        if (item.transactionType === 'Opening Stock' || item.transactionType === 'Purchase') {
+          return acc + item.quantityBottles;
+        }
+        return acc;
+      }, 0), 
+      icon: <FiPlusCircle className="text-purple-400" size={20} />, 
+      color: 'from-purple-500 to-purple-600' 
+    },
+    { 
+      id: 'lowStock',
+      title: 'Low Stock Items', 
+      value: products.filter(product => {
+        const stock = inventory.reduce((acc, item) => {
+          if (item.productId === product._id) {
+            if (item.transactionType === 'Opening Stock' || item.transactionType === 'Purchase') {
+              return acc + item.quantityBottles;
+            } else if (item.transactionType === 'Sale') {
+              return acc - item.quantityBottles;
+            }
+          }
+          return acc;
+        }, 0);
+        return stock > 0 && stock < 5; // Only items with less than 5 bottles
+      }).length, 
+      icon: <FiBarChart2 className="text-amber-400" size={20} />, 
+      color: 'from-amber-500 to-amber-600' 
+    },
+    { 
+      id: 'transactions',
+      title: 'Transactions', 
+      value: inventory.filter(i => i.transactionType === 'Purchase' || i.transactionType === 'Sale').length, 
+      icon: <FiBarChart2 className="text-emerald-400" size={20} />, 
+      color: 'from-emerald-500 to-emerald-600' 
+    }
+  ].map((stat) => (
+    <motion.div
+      key={stat.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={() => setActiveStatCard(stat.id)}
+      className={`p-5 rounded-2xl bg-gradient-to-br ${stat.color} text-white shadow-lg cursor-pointer transition-all
+        ${activeStatCard === stat.id ? 'ring-2 ring-white/50' : ''}`}
+    >
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="text-sm font-medium opacity-80">{stat.title}</h3>
+          <p className="text-3xl font-bold mt-2">{stat.value}</p>
+        </div>
+        <div className="p-2 rounded-lg bg-white/10">
+          {stat.icon}
+        </div>
+      </div>
+    </motion.div>
+  ))}
+</div>
             {/* Data Display Section */}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mb-8 p-6 rounded-2xl min-h-[400px]"
-              style={glassStyle}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold">
-                  {activeStatCard === 'totalProducts' && 'All Products'}
-                  {activeStatCard === 'activeInventory' && 'Active Inventory'}
-                  {activeStatCard === 'lowStock' && 'Low Stock Items'}
-                  {activeStatCard === 'transactions' && 'Recent Transactions'}
-                </h3>
-                {activeStatCard === 'transactions' && (
-                  <div className="flex items-center gap-2">
-                    <FiFilter className="text-gray-500" />
-                    <select
-                      value={timeRange}
-                      onChange={(e) => setTimeRange(e.target.value)}
-                      className="bg-white/10 border-0 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="week">Last Week</option>
-                      <option value="month">Last Month</option>
-                      <option value="year">Last Year</option>
-                      <option value="all">All Time</option>
-                    </select>
-                  </div>
-                )}
-              </div>
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  className="mb-8 p-6 rounded-2xl min-h-[400px]"
+  style={glassStyle}
+>
+  <div className="flex justify-between items-center mb-6">
+    <h3 className="text-lg font-semibold">
+      {activeStatCard === 'activeInventory' && 'Active Inventory'}
+      {activeStatCard === 'lowStock' && 'Low Stock Items (1-4 bottles)'}
+      {activeStatCard === 'transactions' && 'Recent Transactions'}
+    </h3>
+    {activeStatCard === 'transactions' && (
+      <div className="flex items-center gap-2">
+        <FiFilter className="text-gray-500" />
+        <select
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value)}
+          className="bg-white/10 border-0 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="week">Last Week</option>
+          <option value="month">Last Month</option>
+          <option value="year">Last Year</option>
+          <option value="all">All Time</option>
+        </select>
+      </div>
+    )}
+  </div>
 
-              {filteredData.length > 0 ? (
-                <div className="overflow-auto rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gradient-to-r from-indigo-500 to-purple-500">
-                      <tr>
-                        {activeStatCard === 'totalProducts' && (
-                          <>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Product</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Category</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Current Stock</th>
-                          </>
-                        )}
-                        {activeStatCard === 'activeInventory' && (
-                          <>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Product</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Quantity</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
-                          </>
-                        )}
-                        {activeStatCard === 'lowStock' && (
-                          <>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Product</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Current Stock</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
-                          </>
-                        )}
-                        {activeStatCard === 'transactions' && (
-                          <>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Product</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Quantity</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Vendor</th>
-                          </>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {filteredData.slice(0, 10).map((item, index) => (
-                        <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                          {activeStatCard === 'totalProducts' && (
-                            <>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium">{item.productName}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm">{item.category}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm">
-                                  {inventory.reduce((acc, inv) => {
-                                    if (inv.productId === item._id) {
-                                      return inv.transactionType === 'Opening Stock' 
-                                        ? acc + inv.quantityBottles 
-                                        : acc - inv.quantityBottles;
-                                    }
-                                    return acc;
-                                  }, 0)}
-                                </div>
-                              </td>
-                            </>
-                          )}
-                          {activeStatCard === 'activeInventory' && (
-                            <>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium">{item.productId?.productName || 'N/A'}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm">{item.quantityBottles}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm">{new Date(item.date).toLocaleDateString()}</div>
-                              </td>
-                            </>
-                          )}
-                          {activeStatCard === 'lowStock' && (
-                            <>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium">{item.productName}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm">
-                                  {inventory.reduce((acc, inv) => {
-                                    if (inv.productId === item._id) {
-                                      return inv.transactionType === 'Opening Stock' 
-                                        ? acc + inv.quantityBottles 
-                                        : acc - inv.quantityBottles;
-                                    }
-                                    return acc;
-                                  }, 0)}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-2 py-1 rounded-full text-xs bg-red-500/10 text-red-500">Low Stock</span>
-                              </td>
-                            </>
-                          )}
-                          {activeStatCard === 'transactions' && (
-                            <>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm">{new Date(item.date).toLocaleDateString()}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium">{item.productId?.productName || 'N/A'}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm">{item.quantityBottles}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm">{item.purchaseVendor || 'N/A'}</div>
-                              </td>
-                            </>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-                  <FiPackage className="mb-4 text-4xl opacity-50" />
-                  <p>No data available</p>
-                </div>
+  {filteredData.length > 0 ? (
+      <div className="overflow-auto rounded-lg">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gradient-to-r from-indigo-500 to-purple-500">
+            <tr>
+              {activeStatCard === 'activeInventory' && (
+                <>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Product</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Transaction Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Quantity</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Cumulative Total</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Vendor</th>
+                </>
               )}
-            </motion.div>
+            {activeStatCard === 'lowStock' && (
+              <>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Product</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Current Stock</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+              </>
+            )}
+            {activeStatCard === 'transactions' && (
+              <>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Product</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Quantity</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Vendor/Customer</th>
+              </>
+            )}
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            {filteredData.slice(0, 10).map((item, index) => (
+              <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                {activeStatCard === 'activeInventory' && (
+                  <>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium">{item.productId?.productName || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        item.transactionType === 'Opening Stock' ? 'bg-blue-500/10 text-blue-500' :
+                        'bg-purple-500/10 text-purple-500'
+                      }`}>
+                        {item.transactionType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium">{item.quantityBottles}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                        {item.cumulativeQuantity || 0}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm">{new Date(item.date).toLocaleDateString()}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm">{item.purchaseVendor || 'N/A'}</div>
+                    </td>
+                  </>
+                )}
+              {activeStatCard === 'lowStock' && (
+                <>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium">{item.productName}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm">{item.category}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium">
+                      {inventory.reduce((acc, inv) => {
+                        if (inv.productId === item._id) {
+                          if (inv.transactionType === 'Opening Stock' || inv.transactionType === 'Purchase') {
+                            return acc + inv.quantityBottles;
+                          } else if (inv.transactionType === 'Sale') {
+                            return acc - inv.quantityBottles;
+                          }
+                        }
+                        return acc;
+                      }, 0)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 py-1 rounded-full text-xs bg-red-500/10 text-red-500">Low Stock</span>
+                  </td>
+                </>
+              )}
+              {activeStatCard === 'transactions' && (
+                <>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm">{new Date(item.date).toLocaleDateString()}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium">{item.productId?.productName || 'N/A'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      item.transactionType === 'Purchase' ? 'bg-green-500/10 text-green-500' :
+                      'bg-purple-500/10 text-purple-500'
+                    }`}>
+                      {item.transactionType}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium">{item.quantityBottles}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm">{item.purchaseVendor || item.saleCustomer || 'N/A'}</div>
+                  </td>
+                </>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+      <FiPackage className="mb-4 text-4xl opacity-50" />
+      <p>No data available</p>
+    </div>
+  )}
+</motion.div>
 
             {/* Full-page Reports Section */}
             <motion.div

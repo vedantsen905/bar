@@ -62,7 +62,7 @@ export default function AdminDashboard({ setIsLoggedIn }) {
         </button>
       </div>
       <div className="bg-gray-800 shadow-lg rounded-xl p-6 text-white">
-        <SalesSummary />
+      <SalesSummary isAdmin={true} />
       </div>
     </div>
   );
