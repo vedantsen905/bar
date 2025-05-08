@@ -252,7 +252,7 @@ export default function UserDashboard() {
               <FiPackage className="text-white" size={20} />
             </div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-              LiquorLock
+              BarStock
             </h1>
           </div>
           
@@ -326,7 +326,7 @@ export default function UserDashboard() {
             </button>
             
             <div className={`text-xs mt-4 px-3 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-              v1.0.0 • LiquorLock © 2023
+              v1.0.0 • BarStock © 2025
             </div>
           </div>
         </div>
@@ -349,7 +349,7 @@ export default function UserDashboard() {
                     <FiPackage className="text-white" size={16} />
                   </div>
                   <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                    LiquorLock
+                    BarStock
                   </h1>
                 </div>
                 <button 
@@ -424,7 +424,7 @@ export default function UserDashboard() {
             <FiMenu size={24} />
           </button>
           <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
-            LiquorLock
+            BarStock
           </h1>
           <button className="text-indigo-600 dark:text-indigo-400 relative">
             <FiBell size={24} />

@@ -49,111 +49,105 @@
      return () => clearInterval(interval);
    }, [filters]);
  
-    async function fetchData() {
-    setIsLoading(true);
-    try {
-      const [productsRes, logsRes] = await Promise.all([
-        fetch('/api/products', { cache: 'no-store' }),
-        fetch('/api/inventory', { cache: 'no-store' }),
-      ]);
-  
-      if (!productsRes.ok || !logsRes.ok) {
-        throw new Error('Failed to fetch data');
-      }
-  
-      const productsData = await productsRes.json();
-      const logsData = await logsRes.json();
-  
-      if (productsData && Array.isArray(productsData.products)) {
-        setProducts(productsData.products);
-      } else {
-        console.error("Fetched products is not an array:", productsData);
-      }
-  
-      setLogs(logsData);
-      setLastUpdated(new Date());
-  
-      const today = new Date().toISOString().split('T')[0];
-      let filteredLogs = logsData.filter(log => 
-        log.transactionType === 'Sales' || 
-        log.transactionType === 'Opening Stock' || 
-        log.transactionType === 'Closing Stock' ||
-        log.transactionType === 'Purchase'
-      );
-  
-      if (filters.dateRange === 'today') {
-        filteredLogs = filteredLogs.filter((log) => log.date === today);
-      } else if (filters.dateRange === 'last7days') {
-        const last7Days = new Date();
-        last7Days.setDate(last7Days.getDate() - 7);
-        const last7DaysString = last7Days.toISOString().split('T')[0];
-        filteredLogs = filteredLogs.filter((log) => log.date >= last7DaysString);
-      } else if (filters.dateRange === 'thisMonth') {
-        const firstDayOfMonth = new Date(today);
-        firstDayOfMonth.setDate(1);
-        const firstDayOfMonthString = firstDayOfMonth.toISOString().split('T')[0];
-        filteredLogs = filteredLogs.filter((log) => log.date >= firstDayOfMonthString);
-      }
-  
-      const data = productsData.products
-        .map((product) => {
-          if (filters.product && product._id !== filters.product) return null;
-      
-          const productLogs = filteredLogs.filter(
-            (log) => log.productId?._id === product._id
-          );
-  
-          // Find latest opening and closing stock
-          const openingStock = productLogs
-            .filter(log => log.transactionType === 'Opening Stock')
-            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-  
-          const closingStock = productLogs
-            .filter(log => log.transactionType === 'Closing Stock')
-            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-  
-          // For admin dashboard, purchases are treated as sales
-          const sales = productLogs
-            .filter(log => isAdmin ? 
-              (log.transactionType === 'Sales' || log.transactionType === 'Purchase') : 
-              log.transactionType === 'Sales'
-            )
-            .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
-  
-          const purchases = isAdmin ? 
+   async function fetchData() {
+     setIsLoading(true);
+     try {
+       const [productsRes, logsRes] = await Promise.all([
+         fetch('/api/products', { cache: 'no-store' }),
+         fetch('/api/inventory', { cache: 'no-store' }),
+       ]);
+ 
+       if (!productsRes.ok || !logsRes.ok) {
+         throw new Error('Failed to fetch data');
+       }
+ 
+       const productsData = await productsRes.json();
+       const logsData = await logsRes.json();
+ 
+       if (productsData && Array.isArray(productsData.products)) {
+         setProducts(productsData.products);
+       } else {
+         console.error("Fetched products is not an array:", productsData);
+       }
+ 
+       setLogs(logsData);
+       setLastUpdated(new Date());
+ 
+       const today = new Date().toISOString().split('T')[0];
+       let filteredLogs = logsData.filter(log => 
+         log.transactionType === 'Sales' || 
+         log.transactionType === 'Opening Stock' || 
+         log.transactionType === 'Closing Stock' ||
+         log.transactionType === 'Purchase'
+       );
+ 
+       if (filters.dateRange === 'today') {
+         filteredLogs = filteredLogs.filter((log) => log.date === today);
+       } else if (filters.dateRange === 'last7days') {
+         const last7Days = new Date();
+         last7Days.setDate(last7Days.getDate() - 7);
+         const last7DaysString = last7Days.toISOString().split('T')[0];
+         filteredLogs = filteredLogs.filter((log) => log.date >= last7DaysString);
+       } else if (filters.dateRange === 'thisMonth') {
+         const firstDayOfMonth = new Date(today);
+         firstDayOfMonth.setDate(1);
+         const firstDayOfMonthString = firstDayOfMonth.toISOString().split('T')[0];
+         filteredLogs = filteredLogs.filter((log) => log.date >= firstDayOfMonthString);
+       }
+ 
+       const data = productsData.products
+         .map((product) => {
+           if (filters.product && product._id !== filters.product) return null;
+ 
+           const productLogs = filteredLogs.filter(
+             (log) => log.productId?._id === product._id
+           );
+ 
+           // Find latest opening and closing stock
+           const openingStock = productLogs
+             .filter(log => log.transactionType === 'Opening Stock')
+             .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+ 
+           const closingStock = productLogs
+             .filter(log => log.transactionType === 'Closing Stock')
+             .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+ 
+             const sales = productLogs
+             .filter(log => log.transactionType === 'Sales' || (!isAdmin && log.transactionType === 'Purchase'))
+             .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
+
+            const purchases = isAdmin ? 
             productLogs
               .filter(log => log.transactionType === 'Purchase')
-              .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0) : 
+              .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0) :
             0;
-  
-          // Calculate remaining stock
-          const remaining = closingStock ? closingStock.quantityBottles : 
-            (openingStock ? openingStock.quantityBottles - sales : 0);
-  
+
+            const remaining = closingStock ? closingStock.quantityBottles : 
+  (openingStock ? openingStock.quantityBottles + (isAdmin ? purchases : 0) - sales : 0);
           const latestDate = productLogs.length > 0
             ? productLogs.reduce((latest, log) => (log.date > latest ? log.date : latest), productLogs[0].date)
             : '-';
-  
-          return {
-            id: product._id,
-            name: product.productName,
-            sold: sales,
-            purchased: purchases,
-            remaining,
-            remainingLiters: (remaining * product.mlPerBottle) / 1000,
-            latestDate,
-            logs: productLogs,
-          };
-        })
-        .filter(Boolean);
-  
-      setSummary(data);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
+ 
+           return {
+             id: product._id,
+             name: product.productName,
+             sold: sales,
+             purchased: purchases,
+             remaining,
+             remainingLiters: (remaining * product.mlPerBottle) / 1000,
+             latestDate,
+             logs: productLogs,
+           };
+         })
+         .filter(Boolean);
+ 
+       setSummary(data);
+     } catch (error) {
+       console.error("Error fetching data:", error);
+     } finally {
+       setIsLoading(false);
+     }
+   }
  
    const handleFilterChange = (e) => {
      const { name, value } = e.target;
@@ -217,40 +211,40 @@
    };
  
    // Stats cards data
-   const stats = [
-    {
-      title: isAdmin ? "Total Sold (Incl. Purchases)" : "Total Transactions",
-      value: summary.reduce((acc, item) => acc + item.sold, 0),
-      change: "+12%",
-      isPositive: true,
-      icon: <FiTrendingUp className="text-2xl" />,
-      color: "text-emerald-500"
-    },
-    isAdmin && {
-      title: "Total Purchases",
-      value: summary.reduce((acc, item) => acc + item.purchased, 0),
-      change: "+5%",
-      isPositive: true,
-      icon: <BiPurchaseTagAlt className="text-2xl" />,
-      color: "text-blue-500"
-    },
-    {
-      title: "Total Remaining",
-      value: summary.reduce((acc, item) => acc + item.remaining, 0),
-      change: "-3%",
-      isPositive: false,
-      icon: <BsBoxSeam className="text-2xl" />,
-      color: "text-indigo-500"
-    },
-    {
-      title: "Active Products",
-      value: summary.length,
-      change: "+2%",
-      isPositive: true,
-      icon: <MdInventory className="text-2xl" />,
-      color: "text-purple-500"
-    }
-  ].filter(Boolean);
+     const stats = [
+       {
+         title: isAdmin ? "Total Sold" : "Total Transactions",
+         value: summary.reduce((acc, item) => acc + item.sold, 0),
+         change: "+12%",
+         isPositive: true,
+         icon: <FiTrendingUp className="text-2xl" />,
+         color: "text-emerald-500"
+       },
+       isAdmin && {
+         title: "Total Purchased",
+         value: summary.reduce((acc, item) => acc + item.purchased, 0),
+         change: "+5%",
+         isPositive: true,
+         icon: <BiPurchaseTagAlt className="text-2xl" />,
+         color: "text-blue-500"
+       },
+       {
+         title: "Total Remaining",
+         value: summary.reduce((acc, item) => acc + item.remaining, 0),
+         change: "-3%",
+         isPositive: false,
+         icon: <BsBoxSeam className="text-2xl" />,
+         color: "text-indigo-500"
+       },
+       {
+         title: "Active Products",
+         value: summary.length,
+         change: "+2%",
+         isPositive: true,
+         icon: <MdInventory className="text-2xl" />,
+         color: "text-purple-500"
+       }
+     ].filter(Boolean);
  
    // Data for radial chart
    const radialData = summary.slice(0, 5).map((item, index) => ({
@@ -454,52 +448,64 @@
              </div>
  
              {/* Radial Bar Chart */}
-             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-               <h3 className="text-lg font-semibold mb-4">Top Selling Products</h3>
-               <div className="h-80">
-                 <ResponsiveContainer width="100%" height="100%">
-                   <RadialBarChart 
-                     innerRadius="20%" 
-                     outerRadius="80%" 
-                     data={radialData}
-                     startAngle={180} 
-                     endAngle={-180}
-                   >
-                     <RadialBar 
-                       minAngle={15} 
-                       label={{ position: 'insideStart', fill: '#fff' }} 
-                       background 
-                       dataKey="value" 
-                       cornerRadius={10}
-                     >
-                       {radialData.map((entry, index) => (
-                         <Cell key={`cell-${index}`} fill={entry.fill} />
-                       ))}
-                     </RadialBar>
-                     <Legend 
-                       iconSize={10} 
-                       layout="vertical" 
-                       verticalAlign="middle" 
-                       align="right"
-                       formatter={(value, entry, index) => (
-                         <span className="text-gray-700 dark:text-gray-300 text-xs">
-                           {radialData[index].name}
-                         </span>
-                       )}
-                     />
-                     <Tooltip 
-                       formatter={(value) => [`${value} bottles`, 'Sold']}
-                       contentStyle={{ 
-                         backgroundColor: '#1F2937', 
-                         color: '#fff',
-                         borderRadius: '0.5rem',
-                         border: 'none'
-                       }}
-                     />
-                   </RadialBarChart>
-                 </ResponsiveContainer>
-               </div>
-             </div>
+             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl border-2 border-indigo-100 dark:border-gray-700">
+  <h3 className="text-2xl font-bold mb-6 text-center bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+    INVENTORY FLOW
+  </h3>
+  <div className="h-[500px] relative">
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart
+        data={[
+          { name: 'Opening', value: summary.reduce((a,b) => a + (b.logs.find(l => l.transactionType === 'Opening Stock')?.quantityBottles || 0), 0) },
+          { name: 'Purchased', value: summary.reduce((a,b) => a + b.purchased, 0) },
+          { name: 'Available', value: summary.reduce((a,b) => a + (b.logs.find(l => l.transactionType === 'Opening Stock')?.quantityBottles || 0) + b.purchased, 0) },
+          { name: 'Sold', value: summary.reduce((a,b) => a + b.sold, 0) },
+          { name: 'Closing', value: summary.reduce((a,b) => a + b.remaining, 0) }
+        ]}
+        margin={{ top: 30, right: 30, left: 30, bottom: 30 }}
+      >
+        <defs>
+          <linearGradient id="funnelGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
+            <stop offset="95%" stopColor="#EC4899" stopOpacity={0.8}/>
+          </linearGradient>
+        </defs>
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke="#6366F1"
+          strokeWidth={3}
+          fill="url(#funnelGradient)"
+          fillOpacity={0.85}
+          animationDuration={2000}
+        />
+        <XAxis 
+          dataKey="name" 
+          tick={{ fontSize: 12, fontWeight: 'bold' }}
+        />
+        <YAxis />
+        <Tooltip
+          contentStyle={{
+            background: 'rgba(30, 41, 59, 0.95)',
+            borderRadius: '12px',
+            border: 'none'
+          }}
+          formatter={(value) => [
+            <div className="text-center p-2">
+              <div className="text-2xl font-bold text-indigo-300">{value}</div>
+              <div className="text-sm text-gray-300">bottles</div>
+            </div>
+          ]}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+    <div className="absolute top-6 right-6 bg-indigo-600/10 backdrop-blur-sm px-3 py-1 rounded-full border border-indigo-400/30">
+      <span className="text-xs font-semibold text-indigo-800 dark:text-indigo-200">
+        INVENTORY MOVEMENT
+      </span>
+    </div>
+  </div>
+</div>
  
              {/* Pie Chart */}
              <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 lg:col-span-2">

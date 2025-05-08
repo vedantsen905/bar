@@ -212,9 +212,7 @@ const Login = () => {
                   type="checkbox"
                   className={`h-4 w-4 rounded ${isDarkMode ? 'bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500' : 'bg-white border-gray-300 text-blue-600 focus:ring-blue-500'} focus:ring-2`}
                 />
-                <label htmlFor="remember-me" className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Remember me
-                </label>
+                
               </div>
               <a href="#" className={`text-sm font-medium ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'}`}>
                 Forgot password?

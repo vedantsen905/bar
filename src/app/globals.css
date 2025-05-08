@@ -63,4 +63,15 @@ button:hover {
   background-color: #2b64a8;
 }
 
+
+@layer base {
+  html {
+    @apply transition-colors duration-200;
+  }
+}@layer base {
+  html {
+    @apply transition-colors duration-200;
+  }
+}
+
  

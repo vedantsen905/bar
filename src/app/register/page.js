@@ -2,60 +2,48 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiUser, FiMail, FiLock, FiPlusCircle } from 'react-icons/fi';
+import { SunIcon, MoonIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import toast, { Toaster } from 'react-hot-toast';
 
-export default function RegisterPage() {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [theme, setTheme] = useState('light');
+export default function AdminRegisterPage() {
+  const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const router = useRouter();
 
+  // Check theme preference on mount
   useEffect(() => {
-    // Initialize theme
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    const theme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldEnableDark = theme === 'dark' || (!theme && prefersDark);
+    
+    setIsDarkMode(shouldEnableDark);
+    document.documentElement.classList.toggle('dark', shouldEnableDark);
+  }, []);
 
-    // Check admin status
-    const checkAdminStatus = async () => {
-      try {
-        const res = await fetch('/api/auth/me');
-        const data = await res.json();
-        if (res.ok && data.role === 'admin') {
-          setIsAdmin(true);
-        } else {
-          router.push('/login');
-        }
-      } catch (err) {
-        console.error('Failed to verify admin status:', err);
-        router.push('/login');
-      }
-    };
-
-    checkAdminStatus();
-  }, [router]);
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
+  // Toggle dark/light mode
+  const handleThemeToggle = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    localStorage.setItem('theme', newMode ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', newMode);
   };
 
+  // Handle input change
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
 
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch('/api/auth/register-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, role: 'user' }),
+        body: JSON.stringify({ ...form, role: 'admin' }),
       });
 
       const data = await res.json();
@@ -64,145 +52,140 @@ export default function RegisterPage() {
         throw new Error(data.message || 'Registration failed');
       }
 
-      router.push('/login');
-    } catch (err) {
-      setError(err.message);
+      toast.success('Admin registered successfully! Redirecting to login...');
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
+    } catch (error) {
+      toast.error(error.message || 'An error occurred. Please try again.');
+      console.error('Registration error:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!isAdmin) {
-    return null; // Or a loading spinner while checking admin status
-  }
-
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-cyan-100'}`}>
-      <div className={`w-full max-w-md p-8 rounded-xl shadow-xl transition-all duration-300 ${theme === 'dark' ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'} hover:shadow-2xl`}>
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center space-x-2">
-            <div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-green-600' : 'bg-green-100 text-green-600'}`}>
-              <FiPlusCircle className="w-6 h-6" />
+    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-cyan-50 to-blue-50'}`}>
+      
+      {/* Toast container */}
+      <Toaster position="top-center" reverseOrder={false} />
+
+      {/* Animated background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {[...Array(10)].map((_, i) => (
+          <div 
+            key={i}
+            className={`absolute rounded-full opacity-10 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-600'}`}
+            style={{
+              width: `${Math.random() * 100 + 50}px`,
+              height: `${Math.random() * 100 + 50}px`,
+              top: `${Math.random() * 100}%`,
+              left: `${Math.random() * 100}%`,
+              transform: `scale(${Math.random() + 0.5})`,
+              animation: `float ${Math.random() * 20 + 10}s linear infinite`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Registration card */}
+      <div className={`relative w-full max-w-md z-10 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl overflow-hidden transition-all duration-500 transform hover:scale-[1.01]`}>
+        
+        <div className={`h-2 ${isDarkMode ? 'bg-gradient-to-r from-purple-600 to-blue-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`}></div>
+
+        <div className="p-8 sm:p-10">
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-cyan-500">
+                Register Admin
+              </h1>
+              <p className={`mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Create a new admin account
+              </p>
             </div>
-            <h1 className="text-2xl font-bold">Create Account</h1>
+
+            <button
+              onClick={handleThemeToggle}
+              className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-yellow-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} transition-colors`}
+              aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDarkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
+            </button>
           </div>
-          <button
-            onClick={toggleTheme}
-            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? <FiSun className="w-5 h-5" /> : <FiMoon className="w-5 h-5" />}
-          </button>
-        </div>
 
-        <h2 className="text-3xl font-bold mb-2">New User</h2>
-        <p className={`mb-8 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Create a new user account</p>
-
-        {error && (
-          <div className={`mb-6 p-3 rounded-lg ${theme === 'dark' ? 'bg-red-900/50 text-red-200' : 'bg-red-100 text-red-700'}`}>
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="username" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-              Username
-            </label>
-            <div className="relative">
-              <div className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                <FiUser className="w-5 h-5" />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="username" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Username</label>
               <input
                 type="text"
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={`block w-full pl-10 pr-3 py-3 rounded-lg border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 focus:ring-green-500 focus:border-green-500' : 'bg-white border-gray-300 focus:ring-green-500 focus:border-green-500'} placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`}
+                name="username"
+                value={form.username}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500 focus:border-blue-500'} placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`}
                 placeholder="Enter username"
                 required
               />
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="email" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-              Email
-            </label>
-            <div className="relative">
-              <div className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                <FiMail className="w-5 h-5" />
-              </div>
+            <div>
+              <label htmlFor="email" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Email</label>
               <input
                 type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`block w-full pl-10 pr-3 py-3 rounded-lg border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 focus:ring-green-500 focus:border-green-500' : 'bg-white border-gray-300 focus:ring-green-500 focus:border-green-500'} placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`}
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500 focus:border-blue-500'} placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`}
                 placeholder="Enter email"
                 required
               />
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="password" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-              Password
-            </label>
-            <div className="relative">
-              <div className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                <FiLock className="w-5 h-5" />
-              </div>
+            <div>
+              <label htmlFor="password" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Password</label>
               <input
                 type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`block w-full pl-10 pr-3 py-3 rounded-lg border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 focus:ring-green-500 focus:border-green-500' : 'bg-white border-gray-300 focus:ring-green-500 focus:border-green-500'} placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`}
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500 focus:border-blue-500'} placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`}
                 placeholder="Enter password"
                 required
               />
             </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`w-full py-3 px-4 rounded-lg font-medium text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isDarkMode ? 'focus:ring-offset-gray-800' : 'focus:ring-offset-white'} transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center`}
+            >
+              {isLoading ? (
+                <>
+                  <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />
+                  Registering...
+                </>
+              ) : (
+                'Register Admin'
+              )}
+            </button>
+          </form>
+
+          <div className={`mt-6 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Already have an account?{' '}
+            <a href="/login" className={`font-medium ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'} transition-colors`}>
+              Sign in
+            </a>
           </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2 ${isLoading 
-              ? theme === 'dark' 
-                ? 'bg-green-700 cursor-not-allowed' 
-                : 'bg-green-300 cursor-not-allowed'
-              : theme === 'dark'
-                ? 'bg-green-600 hover:bg-green-700'
-                : 'bg-green-500 hover:bg-green-600 text-white'}`}
-          >
-            {isLoading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Creating...</span>
-              </>
-            ) : (
-              <>
-                <FiPlusCircle className="w-5 h-5" />
-                <span>Create Account</span>
-              </>
-            )}
-          </button>
-        </form>
-
-        <div className={`mt-6 text-center text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-          Already have an account?{' '}
-          <a 
-            href="/login" 
-            className={`font-medium ${theme === 'dark' ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-500'} transition-colors`}
-          >
-            Login here
-          </a>
         </div>
       </div>
+
+      {/* Global styles for float animation */}
+      <style jsx global>{`
+        @keyframes float {
+          0% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
+          100% { transform: translateY(0) rotate(0deg); }
+        }
+      `}</style>
     </div>
   );
 }
