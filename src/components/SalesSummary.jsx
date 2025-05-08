@@ -10,8 +10,20 @@
  import { BiSolidDashboard, BiPurchaseTagAlt } from 'react-icons/bi';
  import { IoMdPie, IoMdStats } from 'react-icons/io';
  import { BsGraphUpArrow, BsBoxSeam } from 'react-icons/bs';
+ import { useRouter } from 'next/navigation'
+ import { MdLogout } from 'react-icons/md';
+ import { useAuth } from '@/context/AuthContext';
  
- export default function SalesSummary({isAdmin}) {
+ export default function SalesSummary({isAdmin }) {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('token');
+    }
+    return false;
+  });
+  const router = useRouter();
+
+   
    const [summary, setSummary] = useState([]);
    const [filters, setFilters] = useState({
      dateRange: 'today',
@@ -25,6 +37,8 @@
    const [isLoading, setIsLoading] = useState(false);
    const [activeTab, setActiveTab] = useState('summary');
    const [lastUpdated, setLastUpdated] = useState(null);
+  //  const router = useRouter();
+
  
    const COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#F43F5E', '#10B981', '#3B82F6'];
    const RADIAN = Math.PI / 180;
@@ -40,8 +54,26 @@
        </text>
      );
    };
- 
-   
+  //  const { setIsLoggedIn } = useAuth();
+
+  const handleLogout = () => {
+    // 1. Clear token from storage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
+    
+    // 2. Update state
+    setIsLoggedIn(false);
+    
+    // 3. Force full page reload to reset all states
+    window.location.href = '/login'; // Using window.location ensures complete reset
+  };
+
+  // Redirect if not logged in
+  if (!isLoggedIn) {
+    router.push('/login');
+    return null; // Return nothing while redirecting
+  }
    useEffect(() => {
      fetchData();
      // Set up real-time polling every 30 seconds
@@ -50,104 +82,127 @@
    }, [filters]);
  
    async function fetchData() {
-     setIsLoading(true);
-     try {
-       const [productsRes, logsRes] = await Promise.all([
-         fetch('/api/products', { cache: 'no-store' }),
-         fetch('/api/inventory', { cache: 'no-store' }),
-       ]);
- 
-       if (!productsRes.ok || !logsRes.ok) {
-         throw new Error('Failed to fetch data');
-       }
- 
-       const productsData = await productsRes.json();
-       const logsData = await logsRes.json();
- 
-       if (productsData && Array.isArray(productsData.products)) {
-         setProducts(productsData.products);
-       } else {
-         console.error("Fetched products is not an array:", productsData);
-       }
- 
-       setLogs(logsData);
-       setLastUpdated(new Date());
- 
-       const today = new Date().toISOString().split('T')[0];
-       let filteredLogs = logsData.filter(log => 
-         log.transactionType === 'Sales' || 
-         log.transactionType === 'Opening Stock' || 
-         log.transactionType === 'Closing Stock' ||
-         log.transactionType === 'Purchase'
-       );
- 
-       if (filters.dateRange === 'today') {
-         filteredLogs = filteredLogs.filter((log) => log.date === today);
-       } else if (filters.dateRange === 'last7days') {
-         const last7Days = new Date();
-         last7Days.setDate(last7Days.getDate() - 7);
-         const last7DaysString = last7Days.toISOString().split('T')[0];
-         filteredLogs = filteredLogs.filter((log) => log.date >= last7DaysString);
-       } else if (filters.dateRange === 'thisMonth') {
-         const firstDayOfMonth = new Date(today);
-         firstDayOfMonth.setDate(1);
-         const firstDayOfMonthString = firstDayOfMonth.toISOString().split('T')[0];
-         filteredLogs = filteredLogs.filter((log) => log.date >= firstDayOfMonthString);
-       }
- 
-       const data = productsData.products
-         .map((product) => {
-           if (filters.product && product._id !== filters.product) return null;
- 
-           const productLogs = filteredLogs.filter(
-             (log) => log.productId?._id === product._id
-           );
- 
-           // Find latest opening and closing stock
-           const openingStock = productLogs
-             .filter(log => log.transactionType === 'Opening Stock')
-             .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
- 
-           const closingStock = productLogs
-             .filter(log => log.transactionType === 'Closing Stock')
-             .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
- 
-             const sales = productLogs
-             .filter(log => log.transactionType === 'Sales' || (!isAdmin && log.transactionType === 'Purchase'))
-             .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
-
-            const purchases = isAdmin ? 
+    setIsLoading(true);
+    try {
+      const [productsRes, logsRes] = await Promise.all([
+        fetch('/api/products', { cache: 'no-store' }),
+        fetch('/api/inventory', { cache: 'no-store' }),
+      ]);
+  
+      if (!productsRes.ok || !logsRes.ok) {
+        throw new Error('Failed to fetch data');
+      }
+  
+      const productsData = await productsRes.json();
+      const logsData = await logsRes.json();
+  
+      // Debug: Check the first few log dates
+      console.log('Sample log dates:', logsData.slice(0, 3).map(log => log.date));
+      
+      if (productsData && Array.isArray(productsData.products)) {
+        setProducts(productsData.products);
+      } else {
+        console.error("Fetched products is not an array:", productsData);
+      }
+  
+      setLogs(logsData);
+      setLastUpdated(new Date());
+  
+      // Get current date in YYYY-MM-DD format
+      const today = new Date();
+      // Convert to local date string in YYYY-MM-DD format
+      const todayString = today.toLocaleDateString('en-CA'); // 'en-CA' gives YYYY-MM-DD format
+      
+      console.log("Today's date string:", todayString);
+  
+      let filteredLogs = logsData.filter(log => 
+        log.transactionType === 'Sales' || 
+        log.transactionType === 'Opening Stock' || 
+        log.transactionType === 'Closing Stock' ||
+        log.transactionType === 'Purchase'
+      );
+  
+      if (filters.dateRange === 'today') {
+        filteredLogs = filteredLogs.filter((log) => {
+          // Normalize the log date to YYYY-MM-DD format for comparison
+          const logDate = new Date(log.date);
+          const logDateString = logDate.toLocaleDateString('en-CA');
+          console.log(`Comparing: ${logDateString} === ${todayString}`);
+          return logDateString === todayString;
+        });
+        console.log('Filtered logs for today:', filteredLogs);
+      } else if (filters.dateRange === 'last7days') {
+        const last7Days = new Date();
+        last7Days.setDate(last7Days.getDate() - 7);
+        const last7DaysString = last7Days.toLocaleDateString('en-CA');
+        filteredLogs = filteredLogs.filter((log) => {
+          const logDate = new Date(log.date);
+          return logDate >= last7Days;
+        });
+      } else if (filters.dateRange === 'thisMonth') {
+        const firstDayOfMonth = new Date();
+        firstDayOfMonth.setDate(1);
+        filteredLogs = filteredLogs.filter((log) => {
+          const logDate = new Date(log.date);
+          return logDate >= firstDayOfMonth;
+        });
+      }
+  
+      // Rest of your code remains the same...
+      const data = productsData.products
+        .map((product) => {
+          if (filters.product && product._id !== filters.product) return null;
+  
+          const productLogs = filteredLogs.filter(
+            (log) => log.productId?._id === product._id
+          );
+  
+          // Find latest opening and closing stock
+          const openingStock = productLogs
+            .filter(log => log.transactionType === 'Opening Stock')
+            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+  
+          const closingStock = productLogs
+            .filter(log => log.transactionType === 'Closing Stock')
+            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+  
+          const sales = productLogs
+            .filter(log => log.transactionType === 'Sales' || (!isAdmin && log.transactionType === 'Purchase'))
+            .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
+  
+          const purchases = isAdmin ? 
             productLogs
               .filter(log => log.transactionType === 'Purchase')
               .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0) :
             0;
-
-            const remaining = closingStock ? closingStock.quantityBottles : 
-  (openingStock ? openingStock.quantityBottles + (isAdmin ? purchases : 0) - sales : 0);
+  
+          const remaining = closingStock ? closingStock.quantityBottles : 
+            (openingStock ? openingStock.quantityBottles + (isAdmin ? purchases : 0) - sales : 0);
+          
           const latestDate = productLogs.length > 0
             ? productLogs.reduce((latest, log) => (log.date > latest ? log.date : latest), productLogs[0].date)
             : '-';
- 
-           return {
-             id: product._id,
-             name: product.productName,
-             sold: sales,
-             purchased: purchases,
-             remaining,
-             remainingLiters: (remaining * product.mlPerBottle) / 1000,
-             latestDate,
-             logs: productLogs,
-           };
-         })
-         .filter(Boolean);
- 
-       setSummary(data);
-     } catch (error) {
-       console.error("Error fetching data:", error);
-     } finally {
-       setIsLoading(false);
-     }
-   }
+  
+          return {
+            id: product._id,
+            name: product.productName,
+            sold: sales,
+            purchased: purchases,
+            remaining,
+            remainingLiters: (remaining * product.mlPerBottle) / 1000,
+            latestDate,
+            logs: productLogs,
+          };
+        })
+        .filter(Boolean);
+  
+      setSummary(data);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
  
    const handleFilterChange = (e) => {
      const { name, value } = e.target;
@@ -209,6 +264,18 @@
    const refreshData = () => {
      fetchData();
    };
+
+   useEffect(() => {
+    // Fetch data immediately
+    fetchData();
+    
+    // Then check for updates every 5 seconds
+    const interval = setInterval(fetchData, 5000);
+    
+    // Clean up on component unmount
+    return () => clearInterval(interval);
+  }, [filters]); // Still watch for filter changes
+    
  
    // Stats cards data
      const stats = [
@@ -286,8 +353,14 @@
            >
              <FiRefreshCw /> Refresh
            </button>
+           {/* <button 
+      onClick={handleLogout}
+      className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg shadow-sm hover:bg-rose-700 transition-all"
+    >
+      <MdLogout /> Logout
+    </button> */}
          </div>
-       </div>
+       </div> 
  
        {/* Filter Panel */}
        <AnimatePresence>

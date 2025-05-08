@@ -2,24 +2,56 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FiSun, FiMoon, FiLogOut, FiUserPlus, FiUsers, FiActivity } from 'react-icons/fi';
-import SalesSummary from '@/components/SalesSummary';
-import UserCreationModal from '@/components/UserCreationModal';
-
-export default function AdminDashboard({ setIsLoggedIn }) {
+import SalesSummary from '@/components/SalesSummary'; // Placeholder for actual component
+import UserCreationModal from '@/components/UserCreationModal'; // Placeholder for actual component
+export default function AdminDashboard() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [theme, setTheme] = useState('dark');
-  const router = useRouter();
 
-  // Check theme preference and apply it
+  // Check authentication status on component mount
+  useEffect(() => {
+    const verifyAuth = async () => {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        const data = await response.json();
+        if (data?.role === 'admin') {
+          setIsAuthorized(true);
+        } else {
+          handleLogout(); // Automatically logout if not admin
+        }
+      } catch (error) {
+        handleLogout(); // Logout on any error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    verifyAuth();
+  }, [router]);
+
+  // Theme handling
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     setTheme(savedTheme);
     document.documentElement.classList.toggle('dark', savedTheme === 'dark');
   }, []);
 
-  // Toggle between dark and light theme
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
@@ -27,39 +59,20 @@ export default function AdminDashboard({ setIsLoggedIn }) {
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   };
 
-  // Auth verification
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-
-    fetch('/api/auth/verify', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.role === 'admin') {
-          setIsAuthorized(true);
-        } else {
-          router.push('/login');
-        }
-      })
-      .catch(() => {
-        router.push('/login');
-      })
-      .finally(() => setIsLoading(false));
-  }, [router]);
-
+  // Reliable logout function
   const handleLogout = () => {
+    // 1. Clear all auth-related items
     localStorage.removeItem('token');
-    setIsLoggedIn(false);
-    router.push('/login');
+    sessionStorage.removeItem('token');
+    
+    // 2. Clear any other sensitive data if needed
+    // localStorage.removeItem('userData');
+    
+    // 3. Force a hard redirect to ensure complete cleanup
+    window.location.href = '/login'; // Or your home page if different
+    
+    // Note: Using window.location.href instead of router.push()
+    // ensures all states are completely reset
   };
 
   if (isLoading) {
@@ -77,14 +90,11 @@ export default function AdminDashboard({ setIsLoggedIn }) {
           <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
             Unauthorized Access
           </h2>
-          <p className="text-gray-600 dark:text-gray-300">
-            You don't have permission to view this page.
-          </p>
           <button
-            onClick={() => router.push('/login')}
+            onClick={handleLogout}
             className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
-            Go to Login
+            Return to Login
           </button>
         </div>
       </div>
@@ -93,7 +103,7 @@ export default function AdminDashboard({ setIsLoggedIn }) {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      {/* Header */}
+      {/* Header with logout button */}
       <header className="bg-white dark:bg-gray-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -104,22 +114,20 @@ export default function AdminDashboard({ setIsLoggedIn }) {
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                aria-label="Toggle theme"
               >
                 {theme === 'dark' ? <FiSun size={20} /> : <FiMoon size={20} />}
               </button>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-1 text-gray-700 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                className="flex items-center space-x-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
               >
-                <FiLogOut size={20} />
-                <span className="hidden sm:inline">Logout</span>
+                <FiLogOut size={18} />
+                <span>Logout</span>
               </button>
             </div>
           </div>
         </div>
       </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}

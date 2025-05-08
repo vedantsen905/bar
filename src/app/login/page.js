@@ -13,6 +13,9 @@ const Login = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const [backgroundElements, setBackgroundElements] = useState([]);
+  const [isBackgroundReady, setIsBackgroundReady] = useState(false);
+
 
   // Check theme preference on mount
   useEffect(() => {
@@ -31,6 +34,20 @@ const Login = () => {
     localStorage.setItem('theme', newMode ? 'dark' : 'light');
     document.documentElement.classList.toggle('dark', newMode);
   };
+
+  useEffect(() => {
+    const elements = Array(10).fill().map(() => ({
+      width: `${Math.random() * 100 + 50}px`,
+      height: `${Math.random() * 100 + 50}px`,
+      top: `${Math.random() * 100}%`,
+      left: `${Math.random() * 100}%`,
+      transform: `scale(${Math.random() + 0.5})`,
+      animationDuration: `${Math.random() * 20 + 10}s`,
+    }));
+    setBackgroundElements(elements);
+    setIsBackgroundReady(true);
+  }, []);
+
 
   // Handle form submission
   const handleLogin = async (e) => {
@@ -64,22 +81,24 @@ const Login = () => {
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-cyan-50 to-blue-50'}`}>
       {/* Animated background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        {[...Array(10)].map((_, i) => (
-          <div 
-            key={i}
-            className={`absolute rounded-full opacity-10 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-600'}`}
-            style={{
-              width: `${Math.random() * 100 + 50}px`,
-              height: `${Math.random() * 100 + 50}px`,
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              transform: `scale(${Math.random() + 0.5})`,
-              animation: `float ${Math.random() * 20 + 10}s linear infinite`,
-            }}
-          />
-        ))}
-      </div>
+      {isBackgroundReady && (
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          {backgroundElements.map((element, i) => (
+            <div 
+              key={i}
+              className={`absolute rounded-full opacity-10 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-600'}`}
+              style={{
+                width: element.width,
+                height: element.height,
+                top: element.top,
+                left: element.left,
+                transform: element.transform,
+                animation: `float ${element.animationDuration} linear infinite`,
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Main login card */}
       <div className={`relative w-full max-w-md z-10 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl overflow-hidden transition-all duration-500 transform hover:scale-[1.01]`}>
@@ -180,43 +199,17 @@ const Login = () => {
 
             {/* Role selection */}
             <div>
-              <label htmlFor="role" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Login As
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {['user', 'admin'].map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    className={`py-2 px-4 rounded-lg border transition-all ${role === r 
-                      ? isDarkMode 
-                        ? 'bg-blue-600 border-blue-600 text-white' 
-                        : 'bg-blue-500 border-blue-500 text-white'
-                      : isDarkMode 
-                        ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600' 
-                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    {r.charAt(0).toUpperCase() + r.slice(1)}
-                  </button>
-                ))}
-              </div>
+               
+              
             </div>
 
             {/* Remember me & forgot password */}
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className={`h-4 w-4 rounded ${isDarkMode ? 'bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500' : 'bg-white border-gray-300 text-blue-600 focus:ring-blue-500'} focus:ring-2`}
-                />
+               
                 
               </div>
-              <a href="#" className={`text-sm font-medium ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'}`}>
-                Forgot password?
-              </a>
+              
             </div>
 
             {/* Submit button */}
@@ -239,10 +232,10 @@ const Login = () => {
           {/* Sign up link */}
           <div className={`mt-6 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             Don't have an account?{' '}
-            <a href="/signup" className={`font-medium ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'} transition-colors`}>
+            <a href="/register" className={`font-medium ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'} transition-colors`}>
               Sign up
             </a>
-          </div>
+          </div>  
         </div>
       </div>
 

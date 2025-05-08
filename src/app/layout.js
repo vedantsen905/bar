@@ -2,7 +2,8 @@
 
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
-import Navbar from '@/components/Navbar'; // Use Navbar without AuthProvider
+import { AuthProvider } from '@/context/AuthContext';
+import Navbar from '@/components/Navbar';
 
 export default function RootLayout({ children }) {
   return (
@@ -10,14 +11,14 @@ export default function RootLayout({ children }) {
       <head />
       <body className="bg-gray-800 text-gray-200 min-h-screen font-sans">
         <Toaster position="top-right" reverseOrder={false} />
-        
-        {/* Navbar is now handling authentication state directly */}
-        {/* <Navbar />  */}
-        
-        {/* Main content of the page */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {children}
-        </main>
+
+        {/* Navbar inside AuthProvider to handle authentication state */}
+        <AuthProvider>
+          {/* <Navbar /> */}
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );
