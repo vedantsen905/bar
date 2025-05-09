@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function ManageUsers() {
   const [users, setUsers] = useState([]);
@@ -11,7 +13,6 @@ export default function ManageUsers() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
 
   const router = useRouter();
   const usersPerPage = 10;
@@ -75,6 +76,7 @@ export default function ManageUsers() {
       }
     } catch (err) {
       setError(err.message);
+      toast.error(err.message);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +93,39 @@ export default function ManageUsers() {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    const confirmDelete = await new Promise((resolve) => {
+      toast.info(
+        <div>
+          <p>Are you sure you want to delete this user?</p>
+          <div className="flex gap-2 mt-2">
+            <button 
+              onClick={() => {
+                toast.dismiss();
+                resolve(true);
+              }} 
+              className="bg-red-500 text-white px-3 py-1 rounded"
+            >
+              Delete
+            </button>
+            <button 
+              onClick={() => {
+                toast.dismiss();
+                resolve(false);
+              }} 
+              className="bg-gray-500 text-white px-3 py-1 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>,
+        {
+          autoClose: false,
+          closeButton: false,
+        }
+      );
+    });
+
+    if (!confirmDelete) return;
 
     try {
       const token = localStorage.getItem('token');
@@ -104,16 +138,49 @@ export default function ManageUsers() {
         throw new Error('Failed to delete user');
       }
 
-      setSuccessMessage('User deleted successfully');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      toast.success('User deleted successfully');
       fetchUsers();
     } catch (err) {
       setError(err.message);
+      toast.error(err.message);
     }
   };
 
   const handleResetPassword = async (userId) => {
-    if (!confirm('Reset password for this user? They will receive an email with instructions.')) return;
+    const confirmReset = await new Promise((resolve) => {
+      toast.info(
+        <div>
+          <p>Reset password for this user?</p>
+          <p>They will receive an email with instructions.</p>
+          <div className="flex gap-2 mt-2">
+            <button 
+              onClick={() => {
+                toast.dismiss();
+                resolve(true);
+              }} 
+              className="bg-blue-500 text-white px-3 py-1 rounded"
+            >
+              Reset
+            </button>
+            <button 
+              onClick={() => {
+                toast.dismiss();
+                resolve(false);
+              }} 
+              className="bg-gray-500 text-white px-3 py-1 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>,
+        {
+          autoClose: false,
+          closeButton: false,
+        }
+      );
+    });
+
+    if (!confirmReset) return;
 
     try {
       const token = localStorage.getItem('token');
@@ -126,10 +193,10 @@ export default function ManageUsers() {
         throw new Error('Failed to reset password');
       }
 
-      setSuccessMessage('Password reset initiated. User will receive an email.');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      toast.success('Password reset initiated. User will receive an email.');
     } catch (err) {
       setError(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -138,12 +205,21 @@ export default function ManageUsers() {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
+  const getStatusBadge = (isActive) => {
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs ${
+        isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+      }`}>
+        {isActive ? 'Active' : 'Inactive'}
+      </span>
+    );
+  };
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-4">Manage Users</h1>
 
       {error && <p className="text-red-600 mb-4">{error}</p>}
-      {successMessage && <p className="text-green-600 mb-4">{successMessage}</p>}
 
       <form onSubmit={handleSearch} className="mb-4 flex gap-2">
         <input
@@ -166,6 +242,7 @@ export default function ManageUsers() {
                 <th className="border p-2">Name</th>
                 <th className="border p-2">Email</th>
                 <th className="border p-2">Role</th>
+                <th className="border p-2">Status</th>
                 <th className="border p-2">Created At</th>
                 <th className="border p-2">Actions</th>
               </tr>
@@ -176,8 +253,15 @@ export default function ManageUsers() {
                   <td className="border p-2">{user.name}</td>
                   <td className="border p-2">{user.email}</td>
                   <td className="border p-2 capitalize">{user.role}</td>
+                  <td className="border p-2">{getStatusBadge(user.isActive)}</td>
                   <td className="border p-2">{formatDate(user.createdAt)}</td>
                   <td className="border p-2 space-x-2">
+                    <Link
+                      href={`/admin/users/${user._id}/edit`}
+                      className="bg-blue-600 text-white px-2 py-1 rounded"
+                    >
+                      Edit
+                    </Link>
                     <button
                       onClick={() => handleDeleteUser(user._id)}
                       className="bg-red-600 text-white px-2 py-1 rounded"
