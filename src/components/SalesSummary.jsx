@@ -13,6 +13,7 @@
  import { useRouter } from 'next/navigation'
  import { MdLogout } from 'react-icons/md';
  import { useAuth } from '@/context/AuthContext';
+ import * as XLSX from 'xlsx';
  
  export default function SalesSummary({isAdmin }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -22,6 +23,8 @@
     return false;
   });
   const router = useRouter();
+
+  
 
    
    const [summary, setSummary] = useState([]);
@@ -95,6 +98,8 @@
   
       const productsData = await productsRes.json();
       const logsData = await logsRes.json();
+
+      
   
       // Debug: Check the first few log dates
       console.log('Sample log dates:', logsData.slice(0, 3).map(log => log.date));
@@ -150,51 +155,70 @@
   
       // Rest of your code remains the same...
       const data = productsData.products
-        .map((product) => {
-          if (filters.product && product._id !== filters.product) return null;
-  
-          const productLogs = filteredLogs.filter(
-            (log) => log.productId?._id === product._id
-          );
-  
-          // Find latest opening and closing stock
-          const openingStock = productLogs
-            .filter(log => log.transactionType === 'Opening Stock')
-            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-  
-          const closingStock = productLogs
-            .filter(log => log.transactionType === 'Closing Stock')
-            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-  
-          const sales = productLogs
-            .filter(log => log.transactionType === 'Sales' || (!isAdmin && log.transactionType === 'Purchase'))
-            .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
-  
-          const purchases = isAdmin ? 
-            productLogs
-              .filter(log => log.transactionType === 'Purchase')
-              .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0) :
-            0;
-  
-          const remaining = closingStock ? closingStock.quantityBottles : 
-            (openingStock ? openingStock.quantityBottles + (isAdmin ? purchases : 0) - sales : 0);
-          
-          const latestDate = productLogs.length > 0
-            ? productLogs.reduce((latest, log) => (log.date > latest ? log.date : latest), productLogs[0].date)
-            : '-';
-  
-          return {
-            id: product._id,
-            name: product.productName,
-            sold: sales,
-            purchased: purchases,
-            remaining,
-            remainingLiters: (remaining * product.mlPerBottle) / 1000,
-            latestDate,
-            logs: productLogs,
-          };
-        })
-        .filter(Boolean);
+  .map((product) => {
+    if (filters.product && product._id !== filters.product) return null;
+
+    const productLogs = filteredLogs.filter(
+      (log) => log.productId?._id === product._id
+    );
+
+    // Find latest opening stock
+    const openingStock = productLogs
+      .filter((log) => log.transactionType === 'Opening Stock')
+      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+    const openingQty = openingStock?.quantityBottles || 0;
+
+    // Total purchases
+    const purchases = productLogs
+      .filter((log) => log.transactionType === 'Purchase')
+      .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
+
+    // Try to find actual closing stock
+    const closingStockLog = productLogs
+      .filter((log) => log.transactionType === 'Closing Stock')
+      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+    // Calculate closing quantity
+    let closingQty = closingStockLog?.quantityBottles;
+
+    // If closing stock is not available, calculate from other values
+    if (closingQty === undefined) {
+      // Try to compute sales directly from logs if available
+      const rawSales = productLogs
+        .filter((log) => log.transactionType === 'Sales')
+        .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
+
+      closingQty = openingQty + purchases - rawSales;
+    }
+
+    // Calculate sales as opening + purchase - closing
+    const sales = openingQty + purchases - closingQty;
+
+    const remaining = closingQty;
+
+    const latestDate =
+      productLogs.length > 0
+        ? productLogs.reduce(
+            (latest, log) => (log.date > latest ? log.date : latest),
+            productLogs[0].date
+          )
+        : '-';
+
+    return {
+      id: product._id,
+      name: product.productName,
+      sold: sales,
+      purchased: purchases,
+      remaining,
+      remainingLiters: (remaining * product.mlPerBottle) / 1000,
+      latestDate,
+      logs: productLogs,
+      opening: openingQty,
+    };
+  })
+  .filter(Boolean);
+
   
       setSummary(data);
     } catch (error) {
@@ -276,7 +300,23 @@
     return () => clearInterval(interval);
   }, [filters]); // Still watch for filter changes
     
- 
+ const handleDownloadExcel = () => {
+  const excelData = summary.map((item) => ({
+    Product: item.name,
+    Opening: item.opening,
+    Sold: item.sold,
+    Purchased: item.purchased,
+    'Remaining (Bottles)': item.remaining,
+    'Remaining (Liters)': item.remainingLiters.toFixed(2),
+    'Last Transaction': item.latestDate,
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory Summary');
+  XLSX.writeFile(workbook, 'Inventory_Summary.xlsx');
+};
+
    // Stats cards data
      const stats = [
        {
@@ -466,283 +506,483 @@
        {/* Tab Content */}
        <div className="mb-6">
          {activeTab === 'summary' && (
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-             {/* Bar Chart */}
-             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 lg:col-span-2">
-               <div className="flex justify-between items-center mb-4">
-                 <h3 className="text-lg font-semibold">Inventory Overview</h3>
-                 <div className="flex items-center gap-2">
-                   <span className="flex items-center text-sm">
-                     <span className="w-3 h-3 rounded-full bg-indigo-500 mr-1"></span>
-                     Sold
-                   </span>
-                   <span className="flex items-center text-sm">
-                     <span className="w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>
-                     Purchased
-                   </span>
-                   <span className="flex items-center text-sm">
-                     <span className="w-3 h-3 rounded-full bg-purple-500 mr-1"></span>
-                     Remaining
-                   </span>
-                 </div>
-               </div>
-               <div className="h-80">
-                 <ResponsiveContainer width="100%" height="100%">
-                   <BarChart data={summary} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" strokeOpacity={0.5} />
-                     <XAxis 
-                       dataKey="name" 
-                       stroke="#6B7280" 
-                       tick={{ fontSize: 12 }}
-                       tickLine={false}
-                     />
-                     <YAxis 
-                       stroke="#6B7280" 
-                       tick={{ fontSize: 12 }}
-                       tickLine={false}
-                     />
-                     <Tooltip 
-                       contentStyle={{ 
-                         backgroundColor: '#1F2937', 
-                         color: '#fff',
-                         borderRadius: '0.5rem',
-                         border: 'none',
-                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                       }} 
-                       wrapperStyle={{ zIndex: 50 }} 
-                       cursor={{ fill: 'rgba(165, 180, 252, 0.2)' }}
-                     />
-                     <Bar dataKey="sold" name="Sold" radius={[4, 4, 0, 0]} fill="#6366F1" />
-                     <Bar dataKey="purchased" name="Purchased" radius={[4, 4, 0, 0]} fill="#10B981" />
-                     <Bar dataKey="remaining" name="Remaining" radius={[4, 4, 0, 0]} fill="#8B5CF6" />
-                   </BarChart>
-                 </ResponsiveContainer>
-               </div>
-             </div>
- 
-             {/* Radial Bar Chart */}
-             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl border-2 border-indigo-100 dark:border-gray-700">
-  <h3 className="text-2xl font-bold mb-6 text-center bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-    INVENTORY FLOW
-  </h3>
-  <div className="h-[500px] relative">
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {/* Bar Chart with improved label visibility */}
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 lg:col-span-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+        <h3 className="text-lg font-semibold">Inventory Overview</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center text-xs sm:text-sm">
+            <span className="w-3 h-3 rounded-full bg-indigo-500 mr-1"></span>
+            Sold
+          </span>
+          <span className="flex items-center text-xs sm:text-sm">
+            <span className="w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>
+            Purchased
+          </span>
+          <span className="flex items-center text-xs sm:text-sm">
+            <span className="w-3 h-3 rounded-full bg-purple-500 mr-1"></span>
+            Remaining
+          </span>
+        </div>
+      </div>
+      <div className="h-80 min-w-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart 
+            data={summary} 
+            margin={{ 
+              top: 20, 
+              right: 20, 
+              left: 20, 
+              bottom: summary.length > 5 ? 70 : 40 // Increased bottom margin
+            }}
+            barCategoryGap="15%"
+            layout={summary.length > 8 ? "vertical" : "horizontal"} // Switch to vertical for many items
+          >
+            <CartesianGrid strokeDasharray="3 3" vertical={summary.length <= 8} stroke="#E5E7EB" strokeOpacity={0.5} />
+            {summary.length > 8 ? (
+              <YAxis 
+                dataKey="name"
+                type="category"
+                stroke="#6B7280"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                width={100} // Fixed width for vertical layout
+              />
+            ) : (
+              <XAxis 
+                dataKey="name"
+                stroke="#6B7280"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                interval={0}
+                angle={summary.length > 5 ? -45 : 0}
+                dx={summary.length > 5 ? -10 : 0}
+                dy={summary.length > 5 ? 20 : 0}
+                height={summary.length > 5 ? 70 : 40}
+              />
+            )}
+            {summary.length > 8 ? (
+              <XAxis 
+                type="number"
+                stroke="#6B7280"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+              />
+            ) : (
+              <YAxis 
+                stroke="#6B7280"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                width={40}
+              />
+            )}
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: '#1F2937', 
+                color: '#fff',
+                borderRadius: '0.5rem',
+                border: 'none',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+              }} 
+              wrapperStyle={{ zIndex: 50 }} 
+              cursor={{ fill: 'rgba(165, 180, 252, 0.2)' }}
+            />
+            <Bar 
+              dataKey="sold" 
+              name="Sold" 
+              radius={[4, 4, 0, 0]} 
+              fill="#6366F1" 
+              maxBarSize={40}
+            />
+            <Bar 
+              dataKey="purchased" 
+              name="Purchased" 
+              radius={[4, 4, 0, 0]} 
+              fill="#10B981" 
+              maxBarSize={40}
+            />
+            <Bar 
+              dataKey="remaining" 
+              name="Remaining" 
+              radius={[4, 4, 0, 0]} 
+              fill="#8B5CF6" 
+              maxBarSize={40}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+
+    {/* Radial Bar Chart with better label spacing */}
+    <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-xl border-2 border-indigo-100 dark:border-gray-700">
+      <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+        INVENTORY FLOW
+      </h3>
+      <div className="h-[280px] sm:h-[350px] lg:h-[500px] relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={[
+              { name: 'Opening', value: summary.reduce((a,b) => a + (b.logs.find(l => l.transactionType === 'Opening Stock')?.quantityBottles || 0), 0) },
+              { name: 'Purchased', value: summary.reduce((a,b) => a + b.purchased, 0) },
+              { name: 'Available', value: summary.reduce((a,b) => a + (b.logs.find(l => l.transactionType === 'Opening Stock')?.quantityBottles || 0) + b.purchased, 0) },
+              { name: 'Sold', value: summary.reduce((a,b) => a + b.sold, 0) },
+              { name: 'Closing', value: summary.reduce((a,b) => a + b.remaining, 0) }
+            ]}
+            margin={{ 
+              top: 20, 
+              right: 20, 
+              left: 20, 
+              bottom: 30 // Increased bottom margin
+            }}
+          >
+            <defs>
+              <linearGradient id="funnelGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#EC4899" stopOpacity={0.8}/>
+              </linearGradient>
+            </defs>
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke="#6366F1"
+              strokeWidth={2}
+              fill="url(#funnelGradient)"
+              fillOpacity={0.85}
+              animationDuration={2000}
+            />
+            <XAxis 
+              dataKey="name" 
+              tick={{ 
+                fontSize: 10,
+                fontWeight: 'bold',
+                fill: '#6B7280'
+              }}
+              interval={0} // Force all labels to show
+            />
+            <YAxis 
+              tick={{ fontSize: 10 }}
+            />
+            <Tooltip
+              contentStyle={{
+                background: 'rgba(30, 41, 59, 0.95)',
+                borderRadius: '12px',
+                border: 'none'
+              }}
+              formatter={(value) => [
+                <div className="text-center p-2">
+                  <div className="text-lg sm:text-xl font-bold text-indigo-300">{value}</div>
+                  <div className="text-xs sm:text-sm text-gray-300">bottles</div>
+                </div>
+              ]}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+        <div className="absolute top-4 right-4 bg-indigo-600/10 backdrop-blur-sm px-2 py-1 rounded-full border border-indigo-400/30">
+          <span className="text-xs font-semibold text-indigo-800 dark:text-indigo-200">
+            INVENTORY MOVEMENT
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {/* Pie Chart with better label positioning */}
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 lg:col-span-2">
+      <h3 className="text-lg font-semibold mb-4">Inventory Distribution</h3>
+      <div className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={[
+                { name: 'Sold', value: summary.reduce((acc, i) => acc + i.sold, 0) },
+                { name: 'Purchased', value: summary.reduce((acc, i) => acc + i.purchased, 0) },
+                { name: 'Remaining', value: summary.reduce((acc, i) => acc + i.remaining, 0) }
+              ]}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              outerRadius={80}
+              fill="#8884d8"
+              label={({ name, percent }) => {
+                // Only show labels for larger slices
+                return percent > 0.1 ? `${name}: ${(percent * 100).toFixed(0)}%` : '';
+              }}
+              dataKey="value"
+            >
+              {COLORS.map((color, index) => (
+                <Cell key={`cell-${index}`} fill={color} stroke="#1F2937" strokeWidth={1} />
+              ))}
+            </Pie>
+            <Tooltip 
+              formatter={(value, name) => {
+                const total = summary.reduce((acc, item) => acc + item.sold + item.purchased + item.remaining, 0);
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : 0;
+                return [`${value} (${percentage}%)`, name];
+              }}
+              contentStyle={{ 
+                backgroundColor: '#1F2937', 
+                color: '#fff',
+                borderRadius: '0.5rem',
+                border: 'none',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+              }}
+            />
+            <Legend 
+              layout="horizontal"
+              verticalAlign="bottom"
+              height={40}
+              wrapperStyle={{
+                paddingTop: '20px' // Increased padding
+              }}
+              formatter={(value) => (
+                <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
+                  {value}
+                </span>
+              )}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+
+    {/* Area Chart with improved label visibility */}
+     {/* Area Chart with guaranteed full visibility */}
+<div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+  <h3 className="text-lg font-semibold mb-4">Inventory Trend</h3>
+  <div className="h-[400px]"> {/* Increased height to accommodate all items */}
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart
-        data={[
-          { name: 'Opening', value: summary.reduce((a,b) => a + (b.logs.find(l => l.transactionType === 'Opening Stock')?.quantityBottles || 0), 0) },
-          { name: 'Purchased', value: summary.reduce((a,b) => a + b.purchased, 0) },
-          { name: 'Available', value: summary.reduce((a,b) => a + (b.logs.find(l => l.transactionType === 'Opening Stock')?.quantityBottles || 0) + b.purchased, 0) },
-          { name: 'Sold', value: summary.reduce((a,b) => a + b.sold, 0) },
-          { name: 'Closing', value: summary.reduce((a,b) => a + b.remaining, 0) }
-        ]}
-        margin={{ top: 30, right: 30, left: 30, bottom: 30 }}
+        data={summary.map(item => ({
+          name: item.name,
+          sold: item.sold,
+          purchased: item.purchased,
+          remaining: item.remaining
+        }))}
+        margin={{ 
+          top: 20, 
+          right: 20, 
+          left: 30, // Increased left margin for y-axis labels
+          bottom: summary.length > 5 ? 100 : 70 // Substantially increased bottom margin
+        }}
+        layout={summary.length > 8 ? "vertical" : "horizontal"} // Auto-switch layout
       >
-        <defs>
-          <linearGradient id="funnelGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
-            <stop offset="95%" stopColor="#EC4899" stopOpacity={0.8}/>
-          </linearGradient>
-        </defs>
-        <Area
-          type="monotone"
-          dataKey="value"
-          stroke="#6366F1"
-          strokeWidth={3}
-          fill="url(#funnelGradient)"
-          fillOpacity={0.85}
-          animationDuration={2000}
-        />
-        <XAxis 
-          dataKey="name" 
-          tick={{ fontSize: 12, fontWeight: 'bold' }}
-        />
-        <YAxis />
-        <Tooltip
-          contentStyle={{
-            background: 'rgba(30, 41, 59, 0.95)',
-            borderRadius: '12px',
-            border: 'none'
+        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.5} />
+        
+        {/* Conditional axis rendering based on layout */}
+        {summary.length > 8 ? (
+          <>
+            <YAxis 
+              dataKey="name" 
+              type="category"
+              stroke="#6B7280"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              width={120} // Ample space for full names
+              interval={0} // Show all labels
+            />
+            <XAxis 
+              type="number"
+              stroke="#6B7280"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+            />
+          </>
+        ) : (
+          <>
+            <XAxis 
+              dataKey="name"
+              stroke="#6B7280"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              interval={0} // Show all labels
+              angle={summary.length > 4 ? -45 : 0} // Dynamic angle
+              dx={summary.length > 4 ? -10 : 0}
+              dy={summary.length > 4 ? 25 : 10}
+              height={summary.length > 4 ? 80 : 40}
+            />
+            <YAxis 
+              stroke="#6B7280"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              width={40}
+            />
+          </>
+        )}
+
+        {/* Enhanced Tooltip with all details */}
+        <Tooltip 
+          contentStyle={{ 
+            backgroundColor: '#1F2937', 
+            color: '#fff',
+            borderRadius: '0.5rem',
+            border: 'none',
+            minWidth: '220px',
+            padding: '12px'
           }}
-          formatter={(value) => [
-            <div className="text-center p-2">
-              <div className="text-2xl font-bold text-indigo-300">{value}</div>
-              <div className="text-sm text-gray-300">bottles</div>
-            </div>
-          ]}
+          formatter={(value, name, props) => {
+            const total = props.payload.sold + props.payload.purchased + props.payload.remaining;
+            const percentage = ((value / total) * 100).toFixed(1);
+            return [
+              <div key="tooltip-content" className="space-y-2">
+                <div className="font-bold text-lg text-indigo-300 border-b border-gray-600 pb-1">
+                  {props.payload.name}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="text-sm">Sold:</div>
+                  <div className="text-right font-medium">
+                    {props.payload.sold} <span className="text-xs text-gray-400">({((props.payload.sold/total)*100).toFixed(1)}%)</span>
+                  </div>
+                  <div className="text-sm">Purchased:</div>
+                  <div className="text-right font-medium">
+                    {props.payload.purchased} <span className="text-xs text-gray-400">({((props.payload.purchased/total)*100).toFixed(1)}%)</span>
+                  </div>
+                  <div className="text-sm">Remaining:</div>
+                  <div className="text-right font-medium">
+                    {props.payload.remaining} <span className="text-xs text-gray-400">({((props.payload.remaining/total)*100).toFixed(1)}%)</span>
+                  </div>
+                </div>
+              </div>,
+              name
+            ];
+          }}
+        />
+
+        {/* Area plots */}
+        <Area 
+          type="monotone" 
+          dataKey="sold" 
+          name="Sold" 
+          stackId="1" 
+          stroke="#6366F1" 
+          fill="#6366F1" 
+          fillOpacity={0.3}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+        />
+        <Area 
+          type="monotone" 
+          dataKey="purchased" 
+          name="Purchased" 
+          stackId="1" 
+          stroke="#10B981" 
+          fill="#10B981" 
+          fillOpacity={0.3}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+        />
+
+        {/* Legend with interactive elements */}
+        <Legend 
+          verticalAlign="top" 
+          height={50}
+          wrapperStyle={{
+            paddingBottom: '10px'
+          }}
+          formatter={(value) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {value}
+            </span>
+          )}
         />
       </AreaChart>
     </ResponsiveContainer>
-    <div className="absolute top-6 right-6 bg-indigo-600/10 backdrop-blur-sm px-3 py-1 rounded-full border border-indigo-400/30">
-      <span className="text-xs font-semibold text-indigo-800 dark:text-indigo-200">
-        INVENTORY MOVEMENT
-      </span>
-    </div>
   </div>
 </div>
+  </div>
+)}
  
-             {/* Pie Chart */}
-             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 lg:col-span-2">
-               <h3 className="text-lg font-semibold mb-4">Inventory Distribution</h3>
-               <div className="h-80">
-                 <ResponsiveContainer width="100%" height="100%">
-                   <PieChart>
-                     <Pie
-                       data={[
-                         { name: 'Sold', value: summary.reduce((acc, i) => acc + i.sold, 0) },
-                         { name: 'Purchased', value: summary.reduce((acc, i) => acc + i.purchased, 0) },
-                         { name: 'Remaining', value: summary.reduce((acc, i) => acc + i.remaining, 0) }
-                       ]}
-                       cx="50%"
-                       cy="50%"
-                       labelLine={false}
-                       outerRadius={80}
-                       fill="#8884d8"
-                       label={renderCustomizedLabel}
-                       dataKey="value"
-                     >
-                       {COLORS.map((color, index) => (
-                         <Cell key={`cell-${index}`} fill={color} stroke="#1F2937" strokeWidth={1} />
-                       ))}
-                     </Pie>
-                     <Tooltip 
-                       formatter={(value, name) => {
-                         const total = summary.reduce((acc, item) => acc + item.sold + item.purchased + item.remaining, 0);
-                         const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : 0;
-                         return [`${value} (${percentage}%)`, name];
-                       }}
-                       contentStyle={{ 
-                         backgroundColor: '#1F2937', 
-                         color: '#fff',
-                         borderRadius: '0.5rem',
-                         border: 'none',
-                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                       }}
-                     />
-                     <Legend 
-                       formatter={(value) => (
-                         <span className="text-gray-700 dark:text-gray-300 text-sm">
-                           {value}
-                         </span>
-                       )}
-                     />
-                   </PieChart>
-                 </ResponsiveContainer>
-               </div>
-             </div>
- 
-             {/* Area Chart */}
-             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-               <h3 className="text-lg font-semibold mb-4">Inventory Trend</h3>
-               <div className="h-80">
-                 <ResponsiveContainer width="100%" height="100%">
-                   <AreaChart
-                     data={summary.slice(0, 5).map(item => ({
-                       name: item.name,
-                       sold: item.sold,
-                       purchased: item.purchased
-                     }))}
-                     margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                   >
-                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.5} />
-                     <XAxis dataKey="name" stroke="#6B7280" />
-                     <YAxis stroke="#6B7280" />
-                     <Tooltip 
-                       contentStyle={{ 
-                         backgroundColor: '#1F2937', 
-                         color: '#fff',
-                         borderRadius: '0.5rem',
-                         border: 'none'
-                       }}
-                     />
-                     <Area type="monotone" dataKey="sold" stackId="1" stroke="#6366F1" fill="#6366F1" fillOpacity={0.2} />
-                     <Area type="monotone" dataKey="purchased" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.2} />
-                   </AreaChart>
-                 </ResponsiveContainer>
-               </div>
-             </div>
-           </div>
-         )}
- 
-         {activeTab === 'details' && (
-           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
-             <div className="overflow-x-auto">
-               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                 <thead className="bg-gray-50 dark:bg-gray-700">
-                   <tr>
-                     {['Product', 'Sold', 'Purchased', 'Remaining (Bottles)', 'Remaining (Liters)', 'Last Transaction', 'Actions'].map((header) => (
-                       <th
-                         key={header}
-                         scope="col"
-                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                       >
-                         {header}
-                       </th>
-                     ))}
-                   </tr>
-                 </thead>
-                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                   {summary.length === 0 ? (
-                     <tr>
-                       <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                         {isLoading ? 'Loading data...' : 'No data available'}
-                       </td>
-                     </tr>
-                   ) : (
-                     summary.map((item) => (
-                       <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                           {item.name}
-                         </td>
-                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                           <div className="flex items-center">
-                             {item.sold}
-                             <FiTrendingUp className="ml-1 text-emerald-500" />
-                           </div>
-                         </td>
-                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                           <div className="flex items-center">
-                             {item.purchased}
-                             <FiTrendingDown className="ml-1 text-blue-500" />
-                           </div>
-                         </td>
-                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                           {item.remaining}
-                         </td>
-                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                           {item.remainingLiters.toFixed(2)} L
-                         </td>
-                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                           {item.latestDate}
-                         </td>
-                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                           <div className="flex space-x-2">
-                             {item.logs.length > 0 && (
-                               <>
-                                 <button
-                                   onClick={() => handleEdit(item.logs[0])}
-                                   className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-1 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-                                 >
-                                   <MdEdit className="text-lg" />
-                                 </button>
-                                 <button
-                                   onClick={() => handleDelete(item.logs[0]._id)}
-                                   className="text-rose-600 dark:text-rose-400 hover:text-rose-900 dark:hover:text-rose-300 p-1 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/30"
-                                 >
-                                   <MdDelete className="text-lg" />
-                                 </button>
-                               </>
-                             )}
-                           </div>
-                         </td>
-                       </tr>
-                     ))
-                   )}
-                 </tbody>
-               </table>
-             </div>
-           </div>
-         )}
- 
+          
+ {activeTab === 'details' && (
+  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div className="p-4">
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={handleDownloadExcel}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium shadow"
+        >
+          Download Excel
+        </button>
+      </div>
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-700">
+          <tr>
+            {['Product', 'Opening', 'Sold', 'Purchased', 'Remaining (Bottles)', 'Remaining (Liters)', 'Last Transaction', 'Actions'].map((header) => (
+              <th
+                key={header}
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+              >
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          {summary.length === 0 ? (
+            <tr>
+              <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                {isLoading ? 'Loading data...' : 'No data available'}
+              </td>
+            </tr>
+          ) : (
+            summary.map((item) => (
+              <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                  {item.name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {item.opening}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center">
+                    {item.sold}
+                    <FiTrendingUp className="ml-1 text-emerald-500" />
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center">
+                    {item.purchased}
+                    <FiTrendingDown className="ml-1 text-blue-500" />
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {item.remaining}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {item.remainingLiters.toFixed(2)} L
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {item.latestDate}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <div className="flex space-x-2">
+                    {item.logs.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => handleEdit(item.logs[0])}
+                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-1 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                        >
+                          <MdEdit className="text-lg" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.logs[0]._id)}
+                          className="text-rose-600 dark:text-rose-400 hover:text-rose-900 dark:hover:text-rose-300 p-1 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/30"
+                        >
+                          <MdDelete className="text-lg" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div>
+)}
+
          {activeTab === 'logs' && (
            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
              <div className="overflow-x-auto">
