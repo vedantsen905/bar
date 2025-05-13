@@ -1,302 +1,1146 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell
-} from 'recharts';
-import { MdArrowUpward, MdArrowDownward } from 'react-icons/md';
-
-export default function SalesSummary() {
-  const [summary, setSummary] = useState([]);
-  const [filters, setFilters] = useState({
-    dateRange: 'today',
-    product: '',
-    transactionType: 'Sales',
+ 'use client';
+ import { useEffect, useState } from 'react';
+ import { motion, AnimatePresence } from 'framer-motion';
+ import {
+   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid,
+   PieChart, Pie, Cell, AreaChart, Area, RadialBarChart, RadialBar
+ } from 'recharts';
+ import { MdArrowUpward, MdArrowDownward, MdFilterAlt, MdEdit, MdDelete, MdClose, MdSave, MdInventory } from 'react-icons/md';
+ import { FiRefreshCw, FiTrendingUp, FiTrendingDown } from 'react-icons/fi';
+ import { BiSolidDashboard, BiPurchaseTagAlt } from 'react-icons/bi';
+ import { IoMdPie, IoMdStats } from 'react-icons/io';
+ import { BsGraphUpArrow, BsBoxSeam } from 'react-icons/bs';
+ import { useRouter } from 'next/navigation'
+ import { MdLogout } from 'react-icons/md';
+ import { useAuth } from '@/context/AuthContext';
+ import * as XLSX from 'xlsx';
+ 
+ export default function SalesSummary({isAdmin }) {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('token');
+    }
+    return false;
   });
-  const [products, setProducts] = useState([]);
-  const [editingLog, setEditingLog] = useState(null);
-  const [logs, setLogs] = useState([]);
+  const router = useRouter();
 
-  useEffect(() => {
-    async function fetchData() {
+  
+
+   
+   const [summary, setSummary] = useState([]);
+   const [filters, setFilters] = useState({
+     dateRange: 'today',
+     product: '',
+     transactionType: 'Sales',
+   });
+   const [products, setProducts] = useState([]);
+   const [editingLog, setEditingLog] = useState(null);
+   const [logs, setLogs] = useState([]);
+   const [isFilterOpen, setIsFilterOpen] = useState(false);
+   const [isLoading, setIsLoading] = useState(false);
+   const [activeTab, setActiveTab] = useState('summary');
+   const [lastUpdated, setLastUpdated] = useState(null);
+  //  const router = useRouter();
+
+ 
+   const COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#F43F5E', '#10B981', '#3B82F6'];
+   const RADIAN = Math.PI / 180;
+ 
+   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+     const x = cx + radius * Math.cos(-midAngle * RADIAN);
+     const y = cy + radius * Math.sin(-midAngle * RADIAN);
+ 
+     return (
+       <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+         {`${(percent * 100).toFixed(0)}%`}
+       </text>
+     );
+   };
+  //  const { setIsLoggedIn } = useAuth();
+
+  const handleLogout = () => {
+    // 1. Clear token from storage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
+    
+    // 2. Update state
+    setIsLoggedIn(false);
+    
+    // 3. Force full page reload to reset all states
+    window.location.href = '/login'; // Using window.location ensures complete reset
+  };
+
+  // Redirect if not logged in
+  if (!isLoggedIn) {
+    router.push('/login');
+    return null; // Return nothing while redirecting
+  }
+   useEffect(() => {
+     fetchData();
+     // Set up real-time polling every 30 seconds
+     const interval = setInterval(fetchData, 30000);
+     return () => clearInterval(interval);
+   }, [filters]);
+ 
+   async function fetchData() {
+    setIsLoading(true);
+    try {
       const [productsRes, logsRes] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/inventory'),
+        fetch('/api/products', { cache: 'no-store' }),
+        fetch('/api/inventory', { cache: 'no-store' }),
       ]);
-      const products = await productsRes.json();
-      const logs = await logsRes.json();
+  
+      if (!productsRes.ok || !logsRes.ok) {
+        throw new Error('Failed to fetch data');
+      }
+  
+      const productsData = await productsRes.json();
+      const logsData = await logsRes.json();
 
-      setProducts(products);
-      setLogs(logs);
-
-      const today = new Date().toISOString().split('T')[0];
-      let filteredLogs = logs;
-
+      
+  
+      // Debug: Check the first few log dates
+      console.log('Sample log dates:', logsData.slice(0, 3).map(log => log.date));
+      
+      if (productsData && Array.isArray(productsData.products)) {
+        setProducts(productsData.products);
+      } else {
+        console.error("Fetched products is not an array:", productsData);
+      }
+  
+      setLogs(logsData);
+      setLastUpdated(new Date());
+  
+      // Get current date in YYYY-MM-DD format
+      const today = new Date();
+      // Convert to local date string in YYYY-MM-DD format
+      const todayString = today.toLocaleDateString('en-CA'); // 'en-CA' gives YYYY-MM-DD format
+      
+      console.log("Today's date string:", todayString);
+  
+      let filteredLogs = logsData.filter(log => 
+        log.transactionType === 'Sales' || 
+        log.transactionType === 'Opening Stock' || 
+        log.transactionType === 'Closing Stock' ||
+        log.transactionType === 'Purchase'
+      );
+  
       if (filters.dateRange === 'today') {
-        filteredLogs = logs.filter((log) => log.date === today);
+        filteredLogs = filteredLogs.filter((log) => {
+          // Normalize the log date to YYYY-MM-DD format for comparison
+          const logDate = new Date(log.date);
+          const logDateString = logDate.toLocaleDateString('en-CA');
+          console.log(`Comparing: ${logDateString} === ${todayString}`);
+          return logDateString === todayString;
+        });
+        console.log('Filtered logs for today:', filteredLogs);
       } else if (filters.dateRange === 'last7days') {
         const last7Days = new Date();
         last7Days.setDate(last7Days.getDate() - 7);
-        const last7DaysString = last7Days.toISOString().split('T')[0];
-        filteredLogs = logs.filter((log) => log.date >= last7DaysString);
+        const last7DaysString = last7Days.toLocaleDateString('en-CA');
+        filteredLogs = filteredLogs.filter((log) => {
+          const logDate = new Date(log.date);
+          return logDate >= last7Days;
+        });
       } else if (filters.dateRange === 'thisMonth') {
-        const firstDayOfMonth = new Date(today);
+        const firstDayOfMonth = new Date();
         firstDayOfMonth.setDate(1);
-        const firstDayOfMonthString = firstDayOfMonth.toISOString().split('T')[0];
-        filteredLogs = logs.filter((log) => log.date >= firstDayOfMonthString);
+        filteredLogs = filteredLogs.filter((log) => {
+          const logDate = new Date(log.date);
+          return logDate >= firstDayOfMonth;
+        });
       }
+  
+      // Rest of your code remains the same...
+      const data = productsData.products
+  .map((product) => {
+    if (filters.product && product._id !== filters.product) return null;
 
-      const data = products
-        .map((product) => {
-          if (filters.product && product._id !== filters.product) return null;
+    const productLogs = filteredLogs.filter(
+      (log) => log.productId?._id === product._id
+    );
 
-          const productLogs = filteredLogs.filter(
-            (log) =>
-              log.productId?._id === product._id &&
-              (filters.transactionType === 'All' || log.transactionType === filters.transactionType)
-          );
+    // Find latest opening stock
+    const openingStock = productLogs
+      .filter((log) => log.transactionType === 'Opening Stock')
+      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
-          const sold = productLogs
-            .filter((log) => log.transactionType === 'Sales')
-            .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
-          const purchased = productLogs
-            .filter((log) => log.transactionType === 'Purchase')
-            .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
-          const opening = productLogs
-            .filter((log) => log.transactionType === 'Opening Stock')
-            .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
-          const remaining = Math.max(opening + purchased - sold, 0);
+    const openingQty = openingStock?.quantityBottles || 0;
 
-          const latestDate =
-            productLogs.length > 0
-              ? productLogs.reduce((latest, log) => (log.date > latest ? log.date : latest), productLogs[0].date)
-              : '-';
+    // Total purchases
+    const purchases = productLogs
+      .filter((log) => log.transactionType === 'Purchase')
+      .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
 
-          return {
-            name: product.productName,
-            sold,
-            purchased,
-            remaining,
-            remainingLiters: (remaining * product.mlPerBottle) / 1000,
-            latestDate,
-            logs: productLogs,
-          };
-        })
-        .filter(Boolean);
+    // Try to find actual closing stock
+    const closingStockLog = productLogs
+      .filter((log) => log.transactionType === 'Closing Stock')
+      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
+    // Calculate closing quantity
+    let closingQty = closingStockLog?.quantityBottles;
+
+    // If closing stock is not available, calculate from other values
+    if (closingQty === undefined) {
+      // Try to compute sales directly from logs if available
+      const rawSales = productLogs
+        .filter((log) => log.transactionType === 'Sales')
+        .reduce((acc, log) => acc + Math.abs(log.quantityBottles), 0);
+
+      closingQty = openingQty + purchases - rawSales;
+    }
+
+    // Calculate sales as opening + purchase - closing
+    const sales = openingQty + purchases - closingQty;
+
+    const remaining = closingQty;
+
+    const latestDate =
+      productLogs.length > 0
+        ? productLogs.reduce(
+            (latest, log) => (log.date > latest ? log.date : latest),
+            productLogs[0].date
+          )
+        : '-';
+
+    return {
+      id: product._id,
+      name: product.productName,
+      sold: sales,
+      purchased: purchases,
+      remaining,
+      remainingLiters: (remaining * product.mlPerBottle) / 1000,
+      latestDate,
+      logs: productLogs,
+      opening: openingQty,
+    };
+  })
+  .filter(Boolean);
+
+  
       setSummary(data);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setIsLoading(false);
     }
+  }
+ 
+   const handleFilterChange = (e) => {
+     const { name, value } = e.target;
+     setFilters((prev) => ({ ...prev, [name]: value }));
+   };
+ 
+   const handleEdit = (log) => setEditingLog({ ...log });
+   const handleCancelEdit = () => setEditingLog(null);
+ 
+   const handleDelete = async (logId) => {
+     if (!confirm('Are you sure you want to delete this log?')) return;
+     
+     try {
+       const response = await fetch(`/api/inventory/${logId}`, {
+         method: 'DELETE',
+         headers: { 'Content-Type': 'application/json' },
+       });
+ 
+       if (response.ok) {
+         setLogs(logs.filter((log) => log._id !== logId));
+         fetchData();
+       } else {
+         const result = await response.json();
+         console.error(`Failed to delete log with ID ${logId}:`, result);
+         alert('Failed to delete log. Please try again.');
+       }
+     } catch (error) {
+       console.error('Error deleting log:', error);
+       alert('An error occurred while deleting the log.');
+     }
+   };
+ 
+   const handleEditSubmit = async (e) => {
+     e.preventDefault();
+     
+     try {
+       const res = await fetch(`/api/inventory/${editingLog._id}`, {
+         method: 'PUT',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(editingLog),
+       });
+ 
+       if (res.ok) {
+         setEditingLog(null);
+         await fetchData();
+       } else {
+         console.error(`Failed to update log with ID ${editingLog._id}. Status: ${res.status}`);
+         const result = await res.json();
+         alert(result.message || 'Failed to update log. Please try again.');
+       }
+     } catch (error) {
+       console.error('Error updating log:', error);
+       alert('An error occurred while updating the log.');
+     }
+   };
+ 
+   const toggleFilterPanel = () => setIsFilterOpen(!isFilterOpen);
+ 
+   const refreshData = () => {
+     fetchData();
+   };
 
+   useEffect(() => {
+    // Fetch data immediately
     fetchData();
-  }, [filters]);
+    
+    // Then check for updates every 5 seconds
+    const interval = setInterval(fetchData, 5000);
+    
+    // Clean up on component unmount
+    return () => clearInterval(interval);
+  }, [filters]); // Still watch for filter changes
+    
+ const handleDownloadExcel = () => {
+  const excelData = summary.map((item) => ({
+    Product: item.name,
+    Opening: item.opening,
+    Sold: item.sold,
+    Purchased: item.purchased,
+    'Remaining (Bottles)': item.remaining,
+    'Remaining (Liters)': item.remainingLiters.toFixed(2),
+    'Last Transaction': item.latestDate,
+  }));
 
-  const COLORS = ['#f87171', '#60a5fa', '#34d399'];
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory Summary');
+  XLSX.writeFile(workbook, 'Inventory_Summary.xlsx');
+};
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
-  };
+   // Stats cards data
+     const stats = [
+       {
+         title: isAdmin ? "Total Sold" : "Total Transactions",
+         value: summary.reduce((acc, item) => acc + item.sold, 0),
+         change: "+12%",
+         isPositive: true,
+         icon: <FiTrendingUp className="text-2xl" />,
+         color: "text-emerald-500"
+       },
+       isAdmin && {
+         title: "Total Purchased",
+         value: summary.reduce((acc, item) => acc + item.purchased, 0),
+         change: "+5%",
+         isPositive: true,
+         icon: <BiPurchaseTagAlt className="text-2xl" />,
+         color: "text-blue-500"
+       },
+       {
+         title: "Total Remaining",
+         value: summary.reduce((acc, item) => acc + item.remaining, 0),
+         change: "-3%",
+         isPositive: false,
+         icon: <BsBoxSeam className="text-2xl" />,
+         color: "text-indigo-500"
+       },
+       {
+         title: "Active Products",
+         value: summary.length,
+         change: "+2%",
+         isPositive: true,
+         icon: <MdInventory className="text-2xl" />,
+         color: "text-purple-500"
+       }
+     ].filter(Boolean);
+ 
+   // Data for radial chart
+   const radialData = summary.slice(0, 5).map((item, index) => ({
+     name: item.name,
+     value: item.sold,
+     fill: COLORS[index % COLORS.length]
+   }));
+ 
+   return (
+     <div className="mt-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 dark:text-white text-gray-900 p-4 rounded-xl">
+       {/* Header */}
+       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+         <div>
+           <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+             Inventory Dashboard
+           </h2>
+           <p className="text-gray-500 dark:text-gray-400">
+             {lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString()}` : 'Loading data...'}
+           </p>
+         </div>
+         
+         <div className="flex gap-2">
+           <button 
+             onClick={toggleFilterPanel}
+             className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all ${
+               isFilterOpen 
+                 ? 'bg-indigo-600 text-white' 
+                 : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+             }`}
+           >
+             <MdFilterAlt /> Filters
+           </button>
+           <button 
+             onClick={refreshData}
+             className={`flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg shadow-sm hover:shadow transition-all ${
+               isLoading ? 'animate-spin' : ''
+             }`}
+             disabled={isLoading}
+           >
+             <FiRefreshCw /> Refresh
+           </button>
+           {/* <button 
+      onClick={handleLogout}
+      className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg shadow-sm hover:bg-rose-700 transition-all"
+    >
+      <MdLogout /> Logout
+    </button> */}
+         </div>
+       </div> 
+ 
+       {/* Filter Panel */}
+       <AnimatePresence>
+         {isFilterOpen && (
+           <motion.div 
+             initial={{ opacity: 0, height: 0 }}
+             animate={{ opacity: 1, height: 'auto' }}
+             exit={{ opacity: 0, height: 0 }}
+             className="overflow-hidden mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 border border-gray-200 dark:border-gray-700"
+           >
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               {[{
+                 name: 'dateRange', label: 'Date Range', options: [
+                   { value: 'today', label: 'Today' },
+                   { value: 'last7days', label: 'Last 7 Days' },
+                   { value: 'thisMonth', label: 'This Month' }
+                 ]
+               }, {
+                 name: 'product', label: 'Product', options: [
+                   { value: '', label: 'All Products' },
+                   ...products.map(p => ({ value: p._id, label: p.productName }))
+                 ]
+               }, {
+                 name: 'transactionType', label: 'Transaction Type', options: [
+                   { value: 'Sales', label: 'Sales' },
+                   { value: 'Purchase', label: 'Purchase' },
+                   { value: 'Opening Stock', label: 'Opening Stock' },
+                   { value: 'Closing Stock', label: 'Closing Stock' }
+                 ]
+               }].map((filter, i) => (
+                 <div key={i}>
+                   <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300" htmlFor={filter.name}>{filter.label}</label>
+                   <select
+                     name={filter.name}
+                     value={filters[filter.name]}
+                     onChange={handleFilterChange}
+                     className="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                   >
+                     {filter.options.map(opt => (
+                       <option key={opt.value} value={opt.value}>{opt.label}</option>
+                     ))}
+                   </select>
+                 </div>
+               ))}
+             </div>
+           </motion.div>
+         )}
+       </AnimatePresence>
+ 
+       {/* Stats Cards */}
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+         {stats.map((stat, index) => (
+           <motion.div 
+             key={index} 
+             whileHover={{ y: -5 }}
+             className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-200 dark:border-gray-700"
+           >
+             <div className="flex justify-between items-start">
+               <div>
+                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.title}</p>
+                 <p className="text-2xl font-bold mt-1">{stat.value}</p>
+               </div>
+               <div className={`p-3 rounded-full ${stat.color} bg-opacity-20`}>
+                 {stat.icon}
+               </div>
+             </div>
+             <div className={`mt-2 text-sm flex items-center ${stat.isPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+               {stat.isPositive ? (
+                 <FiTrendingUp className="mr-1" />
+               ) : (
+                 <FiTrendingDown className="mr-1" />
+               )}
+               {stat.change} from last period
+             </div>
+           </motion.div>
+         ))}
+       </div>
+ 
+       {/* Tabs */}
+       <div className="mb-6">
+         <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
+           {[
+             { id: 'summary', icon: <IoMdStats className="mr-2" />, label: 'Summary' },
+             { id: 'details', icon: <BsGraphUpArrow className="mr-2" />, label: 'Details' },
+             { id: 'logs', icon: <IoMdPie className="mr-2" />, label: 'Logs' }
+           ].map((tab) => (
+             <button
+               key={tab.id}
+               onClick={() => setActiveTab(tab.id)}
+               className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center ${
+                 activeTab === tab.id
+                   ? 'bg-indigo-600 text-white shadow-md'
+                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+               }`}
+             >
+               {tab.icon}
+               {tab.label}
+             </button>
+           ))}
+         </div>
+       </div>
+ 
+       {/* Tab Content */}
+       <div className="mb-6">
+         {activeTab === 'summary' && (
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {/* Bar Chart with improved label visibility */}
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 lg:col-span-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+        <h3 className="text-lg font-semibold">Inventory Overview</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center text-xs sm:text-sm">
+            <span className="w-3 h-3 rounded-full bg-indigo-500 mr-1"></span>
+            Sold
+          </span>
+          <span className="flex items-center text-xs sm:text-sm">
+            <span className="w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>
+            Purchased
+          </span>
+          <span className="flex items-center text-xs sm:text-sm">
+            <span className="w-3 h-3 rounded-full bg-purple-500 mr-1"></span>
+            Remaining
+          </span>
+        </div>
+      </div>
+      <div className="h-80 min-w-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart 
+            data={summary} 
+            margin={{ 
+              top: 20, 
+              right: 20, 
+              left: 20, 
+              bottom: summary.length > 5 ? 70 : 40 // Increased bottom margin
+            }}
+            barCategoryGap="15%"
+            layout={summary.length > 8 ? "vertical" : "horizontal"} // Switch to vertical for many items
+          >
+            <CartesianGrid strokeDasharray="3 3" vertical={summary.length <= 8} stroke="#E5E7EB" strokeOpacity={0.5} />
+            {summary.length > 8 ? (
+              <YAxis 
+                dataKey="name"
+                type="category"
+                stroke="#6B7280"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                width={100} // Fixed width for vertical layout
+              />
+            ) : (
+              <XAxis 
+                dataKey="name"
+                stroke="#6B7280"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                interval={0}
+                angle={summary.length > 5 ? -45 : 0}
+                dx={summary.length > 5 ? -10 : 0}
+                dy={summary.length > 5 ? 20 : 0}
+                height={summary.length > 5 ? 70 : 40}
+              />
+            )}
+            {summary.length > 8 ? (
+              <XAxis 
+                type="number"
+                stroke="#6B7280"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+              />
+            ) : (
+              <YAxis 
+                stroke="#6B7280"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                width={40}
+              />
+            )}
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: '#1F2937', 
+                color: '#fff',
+                borderRadius: '0.5rem',
+                border: 'none',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+              }} 
+              wrapperStyle={{ zIndex: 50 }} 
+              cursor={{ fill: 'rgba(165, 180, 252, 0.2)' }}
+            />
+            <Bar 
+              dataKey="sold" 
+              name="Sold" 
+              radius={[4, 4, 0, 0]} 
+              fill="#6366F1" 
+              maxBarSize={40}
+            />
+            <Bar 
+              dataKey="purchased" 
+              name="Purchased" 
+              radius={[4, 4, 0, 0]} 
+              fill="#10B981" 
+              maxBarSize={40}
+            />
+            <Bar 
+              dataKey="remaining" 
+              name="Remaining" 
+              radius={[4, 4, 0, 0]} 
+              fill="#8B5CF6" 
+              maxBarSize={40}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
 
-  const handleEdit = (log) => setEditingLog(log);
+    {/* Radial Bar Chart with better label spacing */}
+    <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-xl border-2 border-indigo-100 dark:border-gray-700">
+      <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+        INVENTORY FLOW
+      </h3>
+      <div className="h-[280px] sm:h-[350px] lg:h-[500px] relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={[
+              { name: 'Opening', value: summary.reduce((a,b) => a + (b.logs.find(l => l.transactionType === 'Opening Stock')?.quantityBottles || 0), 0) },
+              { name: 'Purchased', value: summary.reduce((a,b) => a + b.purchased, 0) },
+              { name: 'Available', value: summary.reduce((a,b) => a + (b.logs.find(l => l.transactionType === 'Opening Stock')?.quantityBottles || 0) + b.purchased, 0) },
+              { name: 'Sold', value: summary.reduce((a,b) => a + b.sold, 0) },
+              { name: 'Closing', value: summary.reduce((a,b) => a + b.remaining, 0) }
+            ]}
+            margin={{ 
+              top: 20, 
+              right: 20, 
+              left: 20, 
+              bottom: 30 // Increased bottom margin
+            }}
+          >
+            <defs>
+              <linearGradient id="funnelGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#EC4899" stopOpacity={0.8}/>
+              </linearGradient>
+            </defs>
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke="#6366F1"
+              strokeWidth={2}
+              fill="url(#funnelGradient)"
+              fillOpacity={0.85}
+              animationDuration={2000}
+            />
+            <XAxis 
+              dataKey="name" 
+              tick={{ 
+                fontSize: 10,
+                fontWeight: 'bold',
+                fill: '#6B7280'
+              }}
+              interval={0} // Force all labels to show
+            />
+            <YAxis 
+              tick={{ fontSize: 10 }}
+            />
+            <Tooltip
+              contentStyle={{
+                background: 'rgba(30, 41, 59, 0.95)',
+                borderRadius: '12px',
+                border: 'none'
+              }}
+              formatter={(value) => [
+                <div className="text-center p-2">
+                  <div className="text-lg sm:text-xl font-bold text-indigo-300">{value}</div>
+                  <div className="text-xs sm:text-sm text-gray-300">bottles</div>
+                </div>
+              ]}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+        <div className="absolute top-4 right-4 bg-indigo-600/10 backdrop-blur-sm px-2 py-1 rounded-full border border-indigo-400/30">
+          <span className="text-xs font-semibold text-indigo-800 dark:text-indigo-200">
+            INVENTORY MOVEMENT
+          </span>
+        </div>
+      </div>
+    </div>
 
-  const handleDelete = async (logId) => {
-    const updatedLogs = logs.filter((log) => log._id !== logId);
-    setLogs(updatedLogs);
-
-    try {
-      const response = await fetch(`/api/inventory/${logId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const result = await response.json();
-        console.error(`Failed to delete log with ID ${logId}:`, result);
-        setLogs((prevLogs) => [...prevLogs]);
-      }
-    } catch (error) {
-      console.error('Error deleting log:', error);
-      setLogs((prevLogs) => [...prevLogs]);
-    }
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-
-    const updatedLogs = logs.map((log) => {
-      if (log._id === editingLog._id) {
-        return { ...log, quantityBottles: editingLog.quantityBottles };
-      }
-      return log;
-    });
-
-    setLogs(updatedLogs);
-
-    try {
-      const res = await fetch(`/api/inventory/${editingLog._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingLog),
-      });
-
-      if (res.ok) {
-        setEditingLog(null);
-        setFilters({ ...filters });
-      } else {
-        console.error(`Failed to update log with ID ${editingLog._id}. Status: ${res.status}`);
-        setLogs(logs);
-      }
-    } catch (error) {
-      console.error('Error updating log:', error);
-      setLogs(logs);
-    }
-  };
-
-  return (
-    <div className="mt-8 bg-white dark:bg-gray-900 dark:text-white text-black p-6 rounded-xl shadow-lg">
-      <h2 className="text-2xl font-semibold mb-4">Sales Summary (Filtered)</h2>
-
-      {/* Filter Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {[{
-          name: 'dateRange', label: 'Date Range', options: ['today', 'last7days', 'thisMonth']
-        }, {
-          name: 'product', label: 'Product', options: [''].concat(products.map(p => ({ value: p._id, label: p.productName })))
-        }, {
-          name: 'transactionType', label: 'Transaction Type', options: ['Sales', 'Purchase', 'Opening Stock', 'Closing Stock', 'All']
-        }].map((filter, i) => (
-          <div key={i}>
-            <label className="block text-sm mb-2 capitalize" htmlFor={filter.name}>{filter.label}</label>
-            <select
-              name={filter.name}
-              value={filters[filter.name]}
-              onChange={handleFilterChange}
-              className="w-full p-2 bg-gray-100 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded"
+    {/* Pie Chart with better label positioning */}
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 lg:col-span-2">
+      <h3 className="text-lg font-semibold mb-4">Inventory Distribution</h3>
+      <div className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={[
+                { name: 'Sold', value: summary.reduce((acc, i) => acc + i.sold, 0) },
+                { name: 'Purchased', value: summary.reduce((acc, i) => acc + i.purchased, 0) },
+                { name: 'Remaining', value: summary.reduce((acc, i) => acc + i.remaining, 0) }
+              ]}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              outerRadius={80}
+              fill="#8884d8"
+              label={({ name, percent }) => {
+                // Only show labels for larger slices
+                return percent > 0.1 ? `${name}: ${(percent * 100).toFixed(0)}%` : '';
+              }}
+              dataKey="value"
             >
-              {filter.options.map(opt => typeof opt === 'string' ? (
-                <option key={opt} value={opt}>{opt === '' ? 'All Products' : opt}</option>
-              ) : (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              {COLORS.map((color, index) => (
+                <Cell key={`cell-${index}`} fill={color} stroke="#1F2937" strokeWidth={1} />
               ))}
-            </select>
-          </div>
-        ))}
+            </Pie>
+            <Tooltip 
+              formatter={(value, name) => {
+                const total = summary.reduce((acc, item) => acc + item.sold + item.purchased + item.remaining, 0);
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : 0;
+                return [`${value} (${percentage}%)`, name];
+              }}
+              contentStyle={{ 
+                backgroundColor: '#1F2937', 
+                color: '#fff',
+                borderRadius: '0.5rem',
+                border: 'none',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+              }}
+            />
+            <Legend 
+              layout="horizontal"
+              verticalAlign="bottom"
+              height={40}
+              wrapperStyle={{
+                paddingTop: '20px' // Increased padding
+              }}
+              formatter={(value) => (
+                <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
+                  {value}
+                </span>
+              )}
+            />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
+    </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Bar Chart */}
-        <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-          <h3 className="text-lg font-semibold mb-2">Sales & Inventory Bar Chart</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={summary} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-              <XAxis dataKey="name" stroke="currentColor" />
-              <YAxis stroke="currentColor" />
-              <Tooltip contentStyle={{ backgroundColor: '#1f2937', color: '#fff' }} wrapperStyle={{ zIndex: 50 }} />
-              <Legend />
-              <Bar dataKey="sold" stackId="a" fill="#f87171" name="Sold" />
-              <Bar dataKey="purchased" stackId="a" fill="#60a5fa" name="Purchased" />
-              <Bar dataKey="remaining" fill="#34d399" name="Remaining" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+    {/* Area Chart with improved label visibility */}
+     {/* Area Chart with guaranteed full visibility */}
+<div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+  <h3 className="text-lg font-semibold mb-4">Inventory Trend</h3>
+  <div className="h-[400px]"> {/* Increased height to accommodate all items */}
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart
+        data={summary.map(item => ({
+          name: item.name,
+          sold: item.sold,
+          purchased: item.purchased,
+          remaining: item.remaining
+        }))}
+        margin={{ 
+          top: 20, 
+          right: 20, 
+          left: 30, // Increased left margin for y-axis labels
+          bottom: summary.length > 5 ? 100 : 70 // Substantially increased bottom margin
+        }}
+        layout={summary.length > 8 ? "vertical" : "horizontal"} // Auto-switch layout
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.5} />
+        
+        {/* Conditional axis rendering based on layout */}
+        {summary.length > 8 ? (
+          <>
+            <YAxis 
+              dataKey="name" 
+              type="category"
+              stroke="#6B7280"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              width={120} // Ample space for full names
+              interval={0} // Show all labels
+            />
+            <XAxis 
+              type="number"
+              stroke="#6B7280"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+            />
+          </>
+        ) : (
+          <>
+            <XAxis 
+              dataKey="name"
+              stroke="#6B7280"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              interval={0} // Show all labels
+              angle={summary.length > 4 ? -45 : 0} // Dynamic angle
+              dx={summary.length > 4 ? -10 : 0}
+              dy={summary.length > 4 ? 25 : 10}
+              height={summary.length > 4 ? 80 : 40}
+            />
+            <YAxis 
+              stroke="#6B7280"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              width={40}
+            />
+          </>
+        )}
 
-        {/* Pie Chart */}
-        <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-          <h3 className="text-lg font-semibold mb-2">Total Distribution</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                dataKey="value"
-                isAnimationActive={false}
-                data={[
-                  { name: 'Sold', value: summary.reduce((acc, i) => acc + i.sold, 0) },
-                  { name: 'Purchased', value: summary.reduce((acc, i) => acc + i.purchased, 0) },
-                  { name: 'Remaining', value: summary.reduce((acc, i) => acc + i.remaining, 0) }
-                ]}
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                fill="#8884d8"
-                label
+        {/* Enhanced Tooltip with all details */}
+        <Tooltip 
+          contentStyle={{ 
+            backgroundColor: '#1F2937', 
+            color: '#fff',
+            borderRadius: '0.5rem',
+            border: 'none',
+            minWidth: '220px',
+            padding: '12px'
+          }}
+          formatter={(value, name, props) => {
+            const total = props.payload.sold + props.payload.purchased + props.payload.remaining;
+            const percentage = ((value / total) * 100).toFixed(1);
+            return [
+              <div key="tooltip-content" className="space-y-2">
+                <div className="font-bold text-lg text-indigo-300 border-b border-gray-600 pb-1">
+                  {props.payload.name}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="text-sm">Sold:</div>
+                  <div className="text-right font-medium">
+                    {props.payload.sold} <span className="text-xs text-gray-400">({((props.payload.sold/total)*100).toFixed(1)}%)</span>
+                  </div>
+                  <div className="text-sm">Purchased:</div>
+                  <div className="text-right font-medium">
+                    {props.payload.purchased} <span className="text-xs text-gray-400">({((props.payload.purchased/total)*100).toFixed(1)}%)</span>
+                  </div>
+                  <div className="text-sm">Remaining:</div>
+                  <div className="text-right font-medium">
+                    {props.payload.remaining} <span className="text-xs text-gray-400">({((props.payload.remaining/total)*100).toFixed(1)}%)</span>
+                  </div>
+                </div>
+              </div>,
+              name
+            ];
+          }}
+        />
+
+        {/* Area plots */}
+        <Area 
+          type="monotone" 
+          dataKey="sold" 
+          name="Sold" 
+          stackId="1" 
+          stroke="#6366F1" 
+          fill="#6366F1" 
+          fillOpacity={0.3}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+        />
+        <Area 
+          type="monotone" 
+          dataKey="purchased" 
+          name="Purchased" 
+          stackId="1" 
+          stroke="#10B981" 
+          fill="#10B981" 
+          fillOpacity={0.3}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+        />
+
+        {/* Legend with interactive elements */}
+        <Legend 
+          verticalAlign="top" 
+          height={50}
+          wrapperStyle={{
+            paddingBottom: '10px'
+          }}
+          formatter={(value) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {value}
+            </span>
+          )}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  </div>
+</div>
+  </div>
+)}
+ 
+          
+ {activeTab === 'details' && (
+  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div className="p-4">
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={handleDownloadExcel}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium shadow"
+        >
+          Download Excel
+        </button>
+      </div>
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-700">
+          <tr>
+            {['Product', 'Opening', 'Sold', 'Purchased', 'Remaining (Bottles)', 'Remaining (Liters)', 'Last Transaction', 'Actions'].map((header) => (
+              <th
+                key={header}
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
               >
-                {COLORS.map((color, index) => (
-                  <Cell key={`cell-${index}`} fill={color} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto mt-6">
-        <table className="min-w-full text-sm border border-gray-300 dark:border-gray-700">
-          <thead>
-            <tr className="bg-gray-100 dark:bg-gray-700">
-              {['Product', 'Sold', 'Purchased', 'Remaining Bottles', 'Remaining Liters', 'Last Transaction Date', 'Actions'].map((th) => (
-                <th key={th} className="py-3 px-4 text-left">{th}</th>
-              ))}
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          {summary.length === 0 ? (
+            <tr>
+              <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                {isLoading ? 'Loading data...' : 'No data available'}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {summary.length === 0 ? (
-              <tr><td colSpan="7" className="text-center py-4">No data available</td></tr>
-            ) : summary.map((item) => (
-              <tr key={item.name} className="border-t border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800">
-                <td className="py-2 px-4">{item.name}</td>
-                <td className="py-2 px-4">{item.sold} <MdArrowUpward className="text-red-500 inline" /></td>
-                <td className="py-2 px-4">{item.purchased} <MdArrowDownward className="text-blue-500 inline" /></td>
-                <td className="py-2 px-4">{item.remaining}</td>
-                <td className="py-2 px-4">{item.remainingLiters.toFixed(2)} L</td>
-                <td className="py-2 px-4">{item.latestDate}</td>
-                <td className="py-2 px-4 space-x-2">
-                  {item.logs.length > 0 && (
-                    <>
-                      <button onClick={() => handleEdit(item.logs[0])} className="bg-blue-600 px-3 py-2 rounded text-white">Edit</button>
-                      <button onClick={() => handleDelete(item.logs[0]._id)} className="bg-red-600 px-3 py-2 rounded text-white">Delete</button>
-                    </>
-                  )}
+          ) : (
+            summary.map((item) => (
+              <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                  {item.name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {item.opening}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center">
+                    {item.sold}
+                    <FiTrendingUp className="ml-1 text-emerald-500" />
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center">
+                    {item.purchased}
+                    <FiTrendingDown className="ml-1 text-blue-500" />
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {item.remaining}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {item.remainingLiters.toFixed(2)} L
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {item.latestDate}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <div className="flex space-x-2">
+                    {item.logs.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => handleEdit(item.logs[0])}
+                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-1 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                        >
+                          <MdEdit className="text-lg" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.logs[0]._id)}
+                          className="text-rose-600 dark:text-rose-400 hover:text-rose-900 dark:hover:text-rose-300 p-1 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/30"
+                        >
+                          <MdDelete className="text-lg" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div>
+)}
 
-      {/* Edit Modal */}
-      <AnimatePresence>
-        {editingLog && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-gray-800 text-black dark:text-white p-6 rounded-lg w-96 shadow-lg"
-            >
-              <h3 className="text-xl mb-4 font-semibold">Edit Log</h3>
-              <form onSubmit={handleEditSubmit}>
-                <div className="mb-4">
-                  <label className="block text-sm mb-2" htmlFor="quantityBottles">Quantity Bottles</label>
-                  <input
-                    type="number"
-                    id="quantityBottles"
-                    name="quantityBottles"
-                    value={editingLog.quantityBottles}
-                    onChange={(e) => setEditingLog({ ...editingLog, quantityBottles: e.target.value })}
-                    className="w-full p-2 bg-gray-100 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded"
-                  />
+         {activeTab === 'logs' && (
+           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+             <div className="overflow-x-auto">
+               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                 <thead className="bg-gray-50 dark:bg-gray-700">
+                   <tr>
+                     {['Product', 'Transaction Type', 'Quantity', 'Date', 'Actions'].map((header) => (
+                       <th
+                         key={header}
+                         scope="col"
+                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                       >
+                         {header}
+                       </th>
+                     ))}
+                   </tr>
+                 </thead>
+                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                   {logs.length === 0 ? (
+                     <tr>
+                       <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                         {isLoading ? 'Loading data...' : 'No logs available'}
+                       </td>
+                     </tr>
+                   ) : (
+                     logs
+                       .filter(log => 
+                         (filters.product ? log.productId?._id === filters.product : true) &&
+                         (log.transactionType === 'Sales' || 
+                          log.transactionType === 'Purchase' || 
+                          log.transactionType === 'Opening Stock' || 
+                          log.transactionType === 'Closing Stock')
+                       )
+                       .map((log) => (
+                       <tr key={log._id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                           {log.productId?.productName || 'N/A'}
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                           <span className={`px-2 py-1 rounded-full text-xs ${
+                             log.transactionType === 'Sales' ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200' :
+                             log.transactionType === 'Purchase' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' :
+                             log.transactionType === 'Opening Stock' ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200' :
+                             'bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200'
+                           }`}>
+                             {log.transactionType}
+                           </span>
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                           {log.quantityBottles} bottles
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                           {log.date}
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                           <div className="flex space-x-2">
+                             <button
+                               onClick={() => handleEdit(log)}
+                               className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 p-1 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                             >
+                               <MdEdit className="text-lg" />
+                             </button>
+                             <button
+                               onClick={() => handleDelete(log._id)}
+                               className="text-rose-600 dark:text-rose-400 hover:text-rose-900 dark:hover:text-rose-300 p-1 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/30"
+                             >
+                               <MdDelete className="text-lg" />
+                             </button>
+                           </div>
+                         </td>
+                       </tr>
+                     ))
+                   )}
+                 </tbody>
+               </table>
+             </div>
+           </div>
+         )}
+       </div>
+ 
+       {/* Edit Modal */}
+       <AnimatePresence>
+         {editingLog && (
+           <motion.div
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+           >
+             <motion.div
+               initial={{ scale: 0.95, y: 20 }}
+               animate={{ scale: 1, y: 0 }}
+               exit={{ scale: 0.95, y: 20 }}
+               className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700"
+             >
+               <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                 <h3 className="text-lg font-semibold">Edit Inventory Log</h3>
+                 <button 
+                   onClick={handleCancelEdit} 
+                   className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                 >
+                   <MdClose className="text-xl" />
+                 </button>
+               </div>
+               
+               <form onSubmit={handleEditSubmit} className="p-4">
+                 <div className="space-y-4">
+                   <div>
+                     <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Product</label>
+                     <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-800 dark:text-gray-200">
+                       {editingLog.productId?.productName || 'N/A'}
+                     </div>
+                   </div>
+                   
+                   <div>
+                     <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Transaction Type</label>
+                     <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-800 dark:text-gray-200">
+                       {editingLog.transactionType}
+                     </div>
+                   </div>
+                   
+                   <div>
+                     <label htmlFor="quantityBottles" className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Quantity (Bottles)</label>
+                     <input
+                       type="number"
+                       id="quantityBottles"
+                       name="quantityBottles"
+                       value={editingLog.quantityBottles}
+                       onChange={(e) => setEditingLog({ ...editingLog, quantityBottles: parseInt(e.target.value) || 0 })}
+                       className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 transition-all"
+                       min="0"
+                       required
+                     />
+                   </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Date</label>
+                    <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-800 dark:text-gray-200">
+                      {editingLog.date}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <button type="submit" className="bg-green-600 px-4 py-2 rounded text-white">Save</button>
-                  <button type="button" onClick={() => setEditingLog(null)} className="bg-gray-500 px-4 py-2 rounded text-white">Cancel</button>
+                
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+                  >
+                    <MdSave /> Save Changes
+                 
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -305,4 +1149,4 @@ export default function SalesSummary() {
       </AnimatePresence>
     </div>
   );
-}
+} 

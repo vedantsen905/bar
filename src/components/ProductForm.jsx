@@ -1,11 +1,9 @@
 'use client';
-
 import { useState } from 'react';
-import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { Tag, List, Package, FlaskConical } from 'lucide-react';
+import { FiBox, FiLayers, FiTag, FiDroplet, FiSave } from 'react-icons/fi';
 
-export default function ProductForm() {
+export default function ProductForm({ onProductSaved }) {
   const [form, setForm] = useState({
     category: '',
     subCategory: '',
@@ -15,126 +13,125 @@ export default function ProductForm() {
 
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const isFormValid = () => {
-    return form.category && form.subCategory && form.productName && form.mlPerBottle > 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!isFormValid()) {
-      toast.error('Please fill all fields correctly!');
-      return;
-    }
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setLoading(true);
-    const res = await fetch('/api/products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, mlPerBottle: Number(form.mlPerBottle) }),
-    });
-
-    const data = await res.json();
-    setLoading(false);
-
-    if (res.ok) {
-      toast.success('Product saved!');
-      setForm({ category: '', subCategory: '', productName: '', mlPerBottle: 750 });
-    } else {
-      toast.error(data.error || 'An error occurred');
+    
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+      
+      if (res.ok) {
+        onProductSaved?.();
+        setForm({ category: '', subCategory: '', productName: '', mlPerBottle: 750 });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="relative z-10 backdrop-blur-md bg-gray-50/80 dark:bg-gray-800/80 text-gray-900 dark:text-white p-6 sm:p-8 rounded-2xl shadow-xl w-full max-w-lg mx-auto mt-10 border border-gray-200 dark:border-gray-700"
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="h-full flex flex-col bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800"
     >
-      <h2 className="text-3xl font-bold text-center mb-6">Add Product</h2>
-
-      <div className="space-y-5">
-        {/* Category */}
-        <div>
-          <label htmlFor="category" className="block text-sm font-semibold mb-1">Category</label>
-          <div className="relative">
-            <Tag className="absolute left-3 top-3 text-gray-400" size={18} />
-            <input
-              id="category"
-              name="category"
-              placeholder="e.g., Alcohol"
-              value={form.category}
-              onChange={handleChange}
-              className="w-full pl-10 pr-3 py-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        {/* Sub Category */}
-        <div>
-          <label htmlFor="subCategory" className="block text-sm font-semibold mb-1">Sub Category</label>
-          <div className="relative">
-            <List className="absolute left-3 top-3 text-gray-400" size={18} />
-            <input
-              id="subCategory"
-              name="subCategory"
-              placeholder="e.g., Whiskey"
-              value={form.subCategory}
-              onChange={handleChange}
-              className="w-full pl-10 pr-3 py-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        {/* Product Name */}
-        <div>
-          <label htmlFor="productName" className="block text-sm font-semibold mb-1">Product Name</label>
-          <div className="relative">
-            <Package className="absolute left-3 top-3 text-gray-400" size={18} />
-            <input
-              id="productName"
-              name="productName"
-              placeholder="e.g., Jack Daniel's"
-              value={form.productName}
-              onChange={handleChange}
-              className="w-full pl-10 pr-3 py-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        {/* ML per Bottle */}
-        <div>
-          <label htmlFor="mlPerBottle" className="block text-sm font-semibold mb-1">ML per Bottle</label>
-          <div className="relative">
-            <FlaskConical className="absolute left-3 top-3 text-gray-400" size={18} />
-            <input
-              id="mlPerBottle"
-              name="mlPerBottle"
-              type="number"
-              placeholder="750"
-              value={form.mlPerBottle}
-              onChange={handleChange}
-              className="w-full pl-10 pr-3 py-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        {/* Submit Button */}
-        <div className="text-center pt-4">
-          <button
-            onClick={handleSubmit}
-            disabled={loading || !isFormValid()}
-            className={`transition duration-300 ease-in-out bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-full shadow-md focus:outline-none focus:ring-4 focus:ring-blue-500/50 ${
-              loading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {loading ? 'Saving...' : 'Save Product'}
-          </button>
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          Add New Product
+        </h2>
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent mx-6"></div>
+        <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+          <FiBox className="text-purple-600 dark:text-purple-400" />
         </div>
       </div>
+
+      <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-5">
+        <div className="space-y-4 flex-1">
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Category</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiTag className="text-gray-400" />
+              </div>
+              <input
+                name="category"
+                value={form.category}
+                onChange={(e) => setForm({...form, category: e.target.value})}
+                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                placeholder="e.g., Whiskey"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Sub Category</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiLayers className="text-gray-400" />
+              </div>
+              <input
+                name="subCategory"
+                value={form.subCategory}
+                onChange={(e) => setForm({...form, subCategory: e.target.value})}
+                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                placeholder="e.g., Single Malt"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Product Name</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiBox className="text-gray-400" />
+              </div>
+              <input
+                name="productName"
+                value={form.productName}
+                onChange={(e) => setForm({...form, productName: e.target.value})}
+                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                placeholder="e.g., Glenfiddich 12"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">ML per Bottle</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiDroplet className="text-gray-400" />
+              </div>
+              <input
+                type="number"
+                name="mlPerBottle"
+                value={form.mlPerBottle}
+                onChange={(e) => setForm({...form, mlPerBottle: e.target.value})}
+                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white"
+                required
+                min="1"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-4 w-full py-3 px-6 bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 hover:opacity-90 disabled:opacity-50"
+        >
+          <div className="flex items-center justify-center">
+            <FiSave className="mr-2" />
+            {loading ? 'Saving...' : 'Save Product'}
+          </div>
+        </button>
+      </form>
     </motion.div>
   );
 }

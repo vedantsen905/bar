@@ -3,14 +3,18 @@ import { connectDB } from "@/lib/db";
 import mongoose from "mongoose";
 
 // DELETE /api/inventory/[id]
-export async function DELETE(req, context) {
+export async function DELETE(req, { params }) {
   await connectDB();
-  const { id } = await context.params;
 
+  // Await the dynamic parameters to ensure 'id' is available
+  const { id } = await params; 
+
+  // Validate the ObjectId format
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return new Response(JSON.stringify({ error: "Invalid ID format" }), { status: 400 });
   }
 
+  // Attempt to delete the inventory log by ID
   const deletedLog = await InventoryLog.findByIdAndDelete(id);
 
   if (!deletedLog) {
@@ -21,17 +25,22 @@ export async function DELETE(req, context) {
 }
 
 // PUT /api/inventory/[id]
-export async function PUT(req, context) {
+export async function PUT(req, { params }) {
   await connectDB();
-  const { id } = context.params;
 
+  // Await the dynamic parameters to ensure 'id' is available
+  const { id } = await params;
+
+  // Validate the ObjectId format
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return new Response(JSON.stringify({ error: "Invalid ID format" }), { status: 400 });
   }
 
   try {
+    // Parse the request body
     const body = await req.json();
 
+    // Attempt to update the inventory log by ID
     const updatedLog = await InventoryLog.findByIdAndUpdate(id, body, {
       new: true,
       runValidators: true,
