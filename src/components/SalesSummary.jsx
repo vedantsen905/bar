@@ -1041,7 +1041,7 @@ switch(filters.dateRange) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {item.latestDate}
-                        </td>
+                        </td> 
                         
                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
   <div className="flex space-x-2">
@@ -1073,7 +1073,7 @@ switch(filters.dateRange) {
   </div>
 )}
 
- {activeTab === 'logs' && (
+  {activeTab === 'logs' && (
   <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
@@ -1098,7 +1098,8 @@ switch(filters.dateRange) {
               </td>
             </tr>
           ) : (
-            logs
+            [...logs]
+              .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by date descending
               .filter(log => 
                 (filters.product ? log.productId?._id === filters.product : true) &&
                 (log.transactionType === 'Sales' || 
@@ -1107,44 +1108,44 @@ switch(filters.dateRange) {
                  log.transactionType === 'Closing Stock')
               )
               .map((log) => (
-              <tr key={log._id} className="hover:bg-amber-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {log.productId?.productName || 'N/A'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    log.transactionType === 'Sales' ? 'bg-emerald-100 text-emerald-800' :
-                    log.transactionType === 'Purchase' ? 'bg-blue-100 text-blue-800' :
-                    log.transactionType === 'Opening Stock' ? 'bg-purple-100 text-purple-800' :
-                    'bg-indigo-100 text-indigo-800'
-                  }`}>
-                    {log.transactionType}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {log.quantityBottles} bottles
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {log.date}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleEdit(log)}
-                      className="text-amber-700 hover:text-amber-900 p-1 rounded-full hover:bg-amber-100"
-                    >
-                      <MdEdit className="text-lg" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(log._id)}
-                      className="text-amber-700 hover:text-amber-900 p-1 rounded-full hover:bg-amber-100"
-                    >
-                      <MdDelete className="text-lg" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))
+                <tr key={log._id} className="hover:bg-amber-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {log.productId?.productName || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      log.transactionType === 'Sales' ? 'bg-emerald-100 text-emerald-800' :
+                      log.transactionType === 'Purchase' ? 'bg-blue-100 text-blue-800' :
+                      log.transactionType === 'Opening Stock' ? 'bg-purple-100 text-purple-800' :
+                      'bg-indigo-100 text-indigo-800'
+                    }`}>
+                      {log.transactionType}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {log.quantityBottles} bottles
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(log.date).toLocaleString()} {/* Format date for better readability */}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleEdit(log)}
+                        className="text-amber-700 hover:text-amber-900 p-1 rounded-full hover:bg-amber-100"
+                      >
+                        <MdEdit className="text-lg" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(log._id)}
+                        className="text-amber-700 hover:text-amber-900 p-1 rounded-full hover:bg-amber-100"
+                      >
+                        <MdDelete className="text-lg" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
           )}
         </tbody>
       </table>

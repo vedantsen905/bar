@@ -38,16 +38,7 @@ export default function Home() {
           </span>
         </div>
         
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          className="p-2 rounded-full bg-white/20 dark:bg-gray-700/50 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-gray-600/50 transition-colors"
-        >
-          {darkMode ? (
-            <SunIcon className="h-5 w-5 text-yellow-300" />
-          ) : (
-            <MoonIcon className="h-5 w-5 text-gray-700" />
-          )}
-        </button>
+         
       </nav>
 
       {/* Main Content */}

@@ -1,33 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { SunIcon, MoonIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function AdminRegisterPage() {
   const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const router = useRouter();
-
-  // Check theme preference on mount
-  useEffect(() => {
-    const theme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldEnableDark = theme === 'dark' || (!theme && prefersDark);
-    
-    setIsDarkMode(shouldEnableDark);
-    document.documentElement.classList.toggle('dark', shouldEnableDark);
-  }, []);
-
-  // Toggle dark/light mode
-  const handleThemeToggle = () => {
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    localStorage.setItem('theme', newMode ? 'dark' : 'light');
-    document.documentElement.classList.toggle('dark', newMode);
-  };
 
   // Handle input change
   const handleChange = (e) => {
@@ -65,7 +46,7 @@ export default function AdminRegisterPage() {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-cyan-50 to-blue-50'}`}>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-amber-50 to-amber-100">
       
       {/* Toast container */}
       <Toaster position="top-center" reverseOrder={false} />
@@ -75,7 +56,7 @@ export default function AdminRegisterPage() {
         {[...Array(10)].map((_, i) => (
           <div 
             key={i}
-            className={`absolute rounded-full opacity-10 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-600'}`}
+            className="absolute rounded-full opacity-10 bg-amber-400"
             style={{
               width: `${Math.random() * 100 + 50}px`,
               height: `${Math.random() * 100 + 50}px`,
@@ -89,65 +70,55 @@ export default function AdminRegisterPage() {
       </div>
 
       {/* Registration card */}
-      <div className={`relative w-full max-w-md z-10 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl overflow-hidden transition-all duration-500 transform hover:scale-[1.01]`}>
+      <div className="relative w-full max-w-md z-10 bg-white rounded-2xl shadow-2xl overflow-hidden transition-all duration-500 transform hover:scale-[1.01]">
         
-        <div className={`h-2 ${isDarkMode ? 'bg-gradient-to-r from-purple-600 to-blue-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`}></div>
+        <div className="h-2 bg-gradient-to-r from-amber-500 to-amber-600"></div>
 
         <div className="p-8 sm:p-10">
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-cyan-500">
-                Register Admin
-              </h1>
-              <p className={`mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Create a new admin account
-              </p>
-            </div>
-
-            <button
-              onClick={handleThemeToggle}
-              className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-yellow-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} transition-colors`}
-              aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDarkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
-            </button>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-amber-500">
+              Register Admin
+            </h1>
+            <p className="mt-1 text-gray-600">
+              Create a new admin account
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Username</label>
+              <label htmlFor="username" className="block text-sm font-medium mb-2 text-gray-700">Username</label>
               <input
                 type="text"
                 name="username"
                 value={form.username}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500 focus:border-blue-500'} placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`}
+                className="w-full px-4 py-3 rounded-lg border bg-white border-gray-300 text-gray-900 focus:ring-amber-500 focus:border-amber-500 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all"
                 placeholder="Enter username"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="email" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Email</label>
+              <label htmlFor="email" className="block text-sm font-medium mb-2 text-gray-700">Email</label>
               <input
                 type="email"
                 name="email"
                 value={form.email}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500 focus:border-blue-500'} placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`}
+                className="w-full px-4 py-3 rounded-lg border bg-white border-gray-300 text-gray-900 focus:ring-amber-500 focus:border-amber-500 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all"
                 placeholder="Enter email"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Password</label>
+              <label htmlFor="password" className="block text-sm font-medium mb-2 text-gray-700">Password</label>
               <input
                 type="password"
                 name="password"
                 value={form.password}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500 focus:border-blue-500'} placeholder-gray-400 focus:outline-none focus:ring-2 transition-all`}
+                className="w-full px-4 py-3 rounded-lg border bg-white border-gray-300 text-gray-900 focus:ring-amber-500 focus:border-amber-500 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all"
                 placeholder="Enter password"
                 required
               />
@@ -156,7 +127,7 @@ export default function AdminRegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-lg font-medium text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isDarkMode ? 'focus:ring-offset-gray-800' : 'focus:ring-offset-white'} transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center`}
+              className="w-full py-3 px-4 rounded-lg font-medium text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-white transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center"
             >
               {isLoading ? (
                 <>
@@ -169,9 +140,9 @@ export default function AdminRegisterPage() {
             </button>
           </form>
 
-          <div className={`mt-6 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+          <div className="mt-6 text-center text-sm text-gray-600">
             Already have an account?{' '}
-            <a href="/login" className={`font-medium ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'} transition-colors`}>
+            <a href="/login" className="font-medium text-amber-600 hover:text-amber-500 transition-colors">
               Sign in
             </a>
           </div>
