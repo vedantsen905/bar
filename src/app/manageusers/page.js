@@ -216,84 +216,103 @@ export default function ManageUsers() {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">Manage Users</h1>
+    <div className="p-6 bg-amber-50 min-h-screen">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold text-amber-900">Manage Users</h1>
+        <button
+          onClick={() => router.push('/admin/dashboard')}
+          className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
 
       {error && <p className="text-red-600 mb-4">{error}</p>}
 
-      <form onSubmit={handleSearch} className="mb-4 flex gap-2">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search users..."
-          className="border p-2 rounded w-64"
-        />
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Search</button>
+      <form onSubmit={handleSearch} className="mb-6 bg-amber-100 p-4 rounded-lg">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search users..."
+            className="border border-amber-300 p-2 rounded w-64 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
+          <button 
+            type="submit" 
+            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded"
+          >
+            Search
+          </button>
+        </div>
       </form>
 
       {isLoading ? (
-        <p>Loading users...</p>
+        <div className="flex justify-center items-center h-64">
+          <p className="text-amber-800">Loading users...</p>
+        </div>
       ) : (
         <>
-          <table className="w-full border-collapse mb-4">
-            <thead>
-              <tr>
-                <th className="border p-2">Name</th>
-                <th className="border p-2">Email</th>
-                <th className="border p-2">Role</th>
-                <th className="border p-2">Status</th>
-                <th className="border p-2">Created At</th>
-                <th className="border p-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user._id}>
-                  <td className="border p-2">{user.name}</td>
-                  <td className="border p-2">{user.email}</td>
-                  <td className="border p-2 capitalize">{user.role}</td>
-                  <td className="border p-2">{getStatusBadge(user.isActive)}</td>
-                  <td className="border p-2">{formatDate(user.createdAt)}</td>
-                  <td className="border p-2 space-x-2">
-                    <Link
-                      href={`/admin/users/${user._id}/edit`}
-                      className="bg-blue-600 text-white px-2 py-1 rounded"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => handleDeleteUser(user._id)}
-                      className="bg-red-600 text-white px-2 py-1 rounded"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      onClick={() => handleResetPassword(user._id)}
-                      className="bg-yellow-500 text-white px-2 py-1 rounded"
-                    >
-                      Reset Password
-                    </button>
-                  </td>
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+            <table className="w-full">
+              <thead className="bg-amber-200">
+                <tr>
+                  <th className="p-3 text-left text-amber-900">Name</th>
+                  <th className="p-3 text-left text-amber-900">Email</th>
+                  <th className="p-3 text-left text-amber-900">Role</th>
+                  <th className="p-3 text-left text-amber-900">Status</th>
+                  <th className="p-3 text-left text-amber-900">Created At</th>
+                  <th className="p-3 text-left text-amber-900">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user._id} className="border-b border-amber-100 hover:bg-amber-50">
+                    <td className="p-3">{user.name}</td>
+                    <td className="p-3">{user.email}</td>
+                    <td className="p-3 capitalize">{user.role}</td>
+                    <td className="p-3">{getStatusBadge(user.isActive)}</td>
+                    <td className="p-3">{formatDate(user.createdAt)}</td>
+                    <td className="p-3 space-x-2">
+                      <Link
+                        href={`/admin/users/${user._id}/edit`}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Edit
+                      </Link>
+                      <button
+                        onClick={() => handleDeleteUser(user._id)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => handleResetPassword(user._id)}
+                        className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Reset Password
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {/* Pagination controls */}
-          <div className="flex justify-center gap-4">
+          <div className="flex justify-center gap-4 mb-6">
             <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 disabled:opacity-50"
             >
               Prev
             </button>
-            <span>Page {currentPage} of {totalPages}</span>
+            <span className="flex items-center text-amber-900">Page {currentPage} of {totalPages}</span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 disabled:opacity-50"
             >
               Next
             </button>

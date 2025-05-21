@@ -8,12 +8,10 @@ module.exports = {
       extend: {
         colors: {
           // Define custom colors if necessary
+          camel: '#C19A6B',
         },
       },
     },
-    plugins: [
-      require('@tailwindcss/forms'),
-      require('@tailwindcss/typography'),
-    ],
+     
   };
   

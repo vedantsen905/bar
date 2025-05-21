@@ -1,5 +1,5 @@
 'use client';
-
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { FiX, FiUser, FiMail, FiLock, FiCheckCircle, FiArrowLeft } from 'react-icons/fi';
@@ -77,18 +77,12 @@ export default function EditUser() {
       return;
     }
   
-    // Validate password strength if password is being changed
     if (formData.password) {
       if (formData.password.length < 8) {
         setError('Password must be at least 8 characters');
         setIsSubmitting(false);
         return;
       }
-      // if (!/[A-Z]/.test(formData.password)) {
-      //   setError('Password must contain at least one uppercase letter');
-      //   setIsSubmitting(false);
-      //   return;
-      // }
       if (!/[a-z]/.test(formData.password)) {
         setError('Password must contain at least one lowercase letter');
         setIsSubmitting(false);
@@ -147,10 +141,10 @@ export default function EditUser() {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div className="bg-gray-800 rounded-xl p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading user data...</p>
+      <div className="fixed inset-0 bg-amber-50/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-xl p-8 text-center shadow-lg border border-amber-200">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500 mx-auto mb-4"></div>
+          <p className="text-amber-800">Loading user data...</p>
         </div>
       </div>
     );
@@ -158,26 +152,26 @@ export default function EditUser() {
 
   if (error && !isLoading) {
     return (
-      <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full">
+      <div className="fixed inset-0 bg-amber-50/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-lg border border-amber-200">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold text-white">Error</h3>
+            <h3 className="text-xl font-semibold text-amber-900">Error</h3>
             <button 
               onClick={() => router.push('/dashboard/admin')}
-              className="text-gray-400 hover:text-white transition-colors p-1 rounded-full hover:bg-gray-700"
+              className="text-amber-600 hover:text-amber-800 transition-colors p-1 rounded-full hover:bg-amber-100"
             >
               <FiX size={20} />
             </button>
           </div>
-          <div className="p-4 bg-red-900/50 text-red-100 rounded-lg border border-red-700 flex items-start gap-2 mb-6">
-            <div className="text-red-400 mt-0.5">
+          <div className="p-4 bg-red-100 text-red-800 rounded-lg border border-red-200 flex items-start gap-2 mb-6">
+            <div className="text-red-500 mt-0.5">
               <FiX size={18} />
             </div>
             <div>{error}</div>
           </div>
           <button
             onClick={() => router.push('/dashboard/admin')}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
           >
             Back to Dashboard
           </button>
@@ -187,32 +181,32 @@ export default function EditUser() {
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-700">
-        <div className="flex justify-between items-center p-6 border-b border-gray-700">
+    <div className="fixed inset-0 bg-amber-50/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-md overflow-hidden border border-amber-200">
+        <div className="flex justify-between items-center p-6 border-b border-amber-200">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => router.push('/dashboard/admin')}
-              className="text-gray-400 hover:text-white transition-colors p-1 rounded-full hover:bg-gray-700"
+              className="text-amber-600 hover:text-amber-800 transition-colors p-1 rounded-full hover:bg-amber-100"
             >
               <FiArrowLeft size={20} />
             </button>
-            <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-              <FiUser className="text-blue-400" />
+            <h3 className="text-xl font-semibold text-amber-900 flex items-center gap-2">
+              <FiUser className="text-amber-600" />
               Edit User
             </h3>
           </div>
           <button 
             onClick={() => router.push('/dashboard/admin')}
-            className="text-gray-400 hover:text-white transition-colors p-1 rounded-full hover:bg-gray-700"
+            className="text-amber-600 hover:text-amber-800 transition-colors p-1 rounded-full hover:bg-amber-100"
           >
             <FiX size={20} />
           </button>
         </div>
         
         {error && (
-          <div className="mx-6 mt-4 p-3 bg-red-900/50 text-red-100 rounded-lg border border-red-700 flex items-start gap-2">
-            <div className="text-red-400 mt-0.5">
+          <div className="mx-6 mt-4 p-3 bg-red-100 text-red-800 rounded-lg border border-red-200 flex items-start gap-2">
+            <div className="text-red-500 mt-0.5">
               <FiX size={18} />
             </div>
             <div>{error}</div>
@@ -221,14 +215,14 @@ export default function EditUser() {
 
         {success ? (
           <div className="p-6 flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-green-900/30 rounded-full flex items-center justify-center mb-4">
-              <FiCheckCircle className="text-green-400" size={32} />
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <FiCheckCircle className="text-green-600" size={32} />
             </div>
-            <h4 className="text-xl font-semibold text-white mb-2">User Updated Successfully!</h4>
-            <p className="text-gray-400">The user account has been updated.</p>
-            <div className="mt-6 w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
+            <h4 className="text-xl font-semibold text-amber-900 mb-2">User Updated Successfully!</h4>
+            <p className="text-amber-700">The user account has been updated.</p>
+            <div className="mt-6 w-full bg-amber-100 h-1.5 rounded-full overflow-hidden">
               <div 
-                className="bg-green-500 h-full rounded-full animate-[progress_1.5s_linear_forwards]"
+                className="bg-amber-600 h-full rounded-full animate-[progress_1.5s_linear_forwards]"
               />
             </div>
           </div>
@@ -240,7 +234,7 @@ export default function EditUser() {
                 value={formData.username} 
                 onChange={handleChange} 
                 placeholder="Username" 
-                icon={<FiUser />} 
+                icon={<FiUser className="text-amber-600" />} 
               />
               <InputField 
                 name="email" 
@@ -248,16 +242,16 @@ export default function EditUser() {
                 onChange={handleChange} 
                 placeholder="Email address" 
                 type="email" 
-                icon={<FiMail />} 
+                icon={<FiMail className="text-amber-600" />} 
               />
               <RoleSelect 
                 value={formData.role} 
                 onChange={handleChange} 
               />
               
-              <div className="pt-4 border-t border-gray-700">
-                <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-                  <FiLock className="text-blue-400" />
+              <div className="pt-4 border-t border-amber-200">
+                <h4 className="text-sm font-medium text-amber-700 mb-3 flex items-center gap-2">
+                  <FiLock className="text-amber-600" />
                   Change Password (optional)
                 </h4>
                 <div className="space-y-4">
@@ -267,7 +261,7 @@ export default function EditUser() {
                     onChange={handleChange} 
                     placeholder="New password" 
                     type="password" 
-                    icon={<FiLock />} 
+                    icon={<FiLock className="text-amber-600" />} 
                   />
                   <InputField 
                     name="confirmPassword" 
@@ -275,7 +269,7 @@ export default function EditUser() {
                     onChange={handleChange} 
                     placeholder="Confirm new password" 
                     type="password" 
-                    icon={<FiLock />} 
+                    icon={<FiLock className="text-amber-600" />} 
                   />
                 </div>
               </div>
@@ -284,14 +278,14 @@ export default function EditUser() {
               <button
                 type="button"
                 onClick={() => router.push('/dashboard/admin')}
-                className="px-5 py-2.5 text-gray-300 hover:text-white transition-colors rounded-lg hover:bg-gray-700/50 disabled:opacity-50"
+                className="px-5 py-2.5 text-amber-700 hover:text-amber-900 transition-colors rounded-lg hover:bg-amber-100 disabled:opacity-50"
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -306,25 +300,42 @@ export default function EditUser() {
         )}
       </div>
 
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster 
+        position="top-center" 
+        reverseOrder={false}
+        toastOptions={{
+          style: {
+            background: '#fff',
+            color: '#92400e',
+            border: '1px solid #fbbf24',
+          },
+          iconTheme: {
+            primary: '#d97706',
+            secondary: '#fff',
+          },
+        }}
+      />
     </div>
   );
 }
 
-function InputField({ name, value, onChange, placeholder, type = 'text', icon, minLength }) {
+  function InputField({ name, value, onChange, placeholder, type = 'text', icon, minLength }) {
   return (
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-        {icon}
-      </div>
+    <div className="form-input-with-icon">
+      {icon && (
+        <span className="input-icon">
+          {icon}
+        </span>
+      )}
       <input
         type={type}
         name={name}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full pl-10 pr-4 py-3 bg-gray-700/50 rounded-lg text-white border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 outline-none transition-all"
+        className="w-full px-4 py-3 bg-amber-50 rounded-lg text-amber-900 border border-amber-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 outline-none transition-all placeholder-amber-400"
         minLength={minLength}
+        style={{ paddingLeft: icon ? '2.5rem' : '1rem' }}
       />
     </div>
   );
@@ -332,23 +343,21 @@ function InputField({ name, value, onChange, placeholder, type = 'text', icon, m
 
 function RoleSelect({ value, onChange }) {
   return (
-    <div>
-      <label className="block text-sm text-gray-400 mb-2">Role</label>
-      <div className="relative">
-        <select
-          name="role"
-          value={value}
-          onChange={onChange}
-          className="w-full px-4 py-3 bg-gray-700/50 rounded-lg text-white border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 appearance-none outline-none transition-all"
-        >
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </select>
-        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
+    <div className="form-select-with-icon">
+      <label className="block text-sm text-amber-700 mb-2">Role</label>
+      <select
+        name="role"
+        value={value}
+        onChange={onChange}
+        className="w-full px-4 py-3 bg-amber-50 rounded-lg text-amber-900 border border-amber-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 appearance-none outline-none transition-all pr-10"
+      >
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+      </select>
+      <div className="select-icon">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
       </div>
     </div>
   );

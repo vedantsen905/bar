@@ -37,83 +37,91 @@ export default function ProductForm({ onProductSaved }) {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="h-full flex flex-col bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800"
+      className="h-full flex flex-col bg-amber-50 p-6 rounded-2xl shadow-sm border border-amber-200"
     >
       <div className="flex items-center justify-between mb-8">
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-semibold text-amber-900">
           Add New Product
         </h2>
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent mx-6"></div>
-        <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-          <FiBox className="text-purple-600 dark:text-purple-400" />
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300 to-transparent mx-6"></div>
+        <div className="p-2 rounded-lg bg-amber-200">
+          <FiBox className="text-amber-700" />
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-5">
-        <div className="space-y-4 flex-1">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Category</label>
+      <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
+        <div className="space-y-6 flex-1">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-amber-800 mb-1">
+              Category
+            </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiTag className="text-gray-400" />
+                <FiTag className="text-amber-500" />
               </div>
               <input
                 name="category"
                 value={form.category}
                 onChange={(e) => setForm({...form, category: e.target.value})}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                placeholder="e.g., Whiskey"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900 placeholder-amber-400 transition-all"
+                 
                 required
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Sub Category</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-amber-800 mb-1">
+              Sub Category
+            </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiLayers className="text-gray-400" />
+                <FiLayers className="text-amber-500" />
               </div>
               <input
                 name="subCategory"
                 value={form.subCategory}
                 onChange={(e) => setForm({...form, subCategory: e.target.value})}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                placeholder="e.g., Single Malt"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900 placeholder-amber-400 transition-all"
+                
                 required
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Product Name</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-amber-800 mb-1">
+              Product Name
+            </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiBox className="text-gray-400" />
+                <FiBox className="text-amber-500" />
               </div>
               <input
                 name="productName"
                 value={form.productName}
                 onChange={(e) => setForm({...form, productName: e.target.value})}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                placeholder="e.g., Glenfiddich 12"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900 placeholder-amber-400 transition-all"
+                 
                 required
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">ML per Bottle</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-amber-800 mb-1">
+              ML per Bottle
+            </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiDroplet className="text-gray-400" />
+                <FiDroplet className="text-amber-500" />
               </div>
               <input
                 type="number"
                 name="mlPerBottle"
                 value={form.mlPerBottle}
                 onChange={(e) => setForm({...form, mlPerBottle: e.target.value})}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 dark:text-white"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900 transition-all"
                 required
                 min="1"
               />
@@ -124,12 +132,10 @@ export default function ProductForm({ onProductSaved }) {
         <button
           type="submit"
           disabled={loading}
-          className="mt-4 w-full py-3 px-6 bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 hover:opacity-90 disabled:opacity-50"
+          className="mt-8 w-full py-3.5 px-6 bg-gradient-to-r from-amber-600 to-amber-500 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 hover:opacity-90 disabled:opacity-50 flex items-center justify-center"
         >
-          <div className="flex items-center justify-center">
-            <FiSave className="mr-2" />
-            {loading ? 'Saving...' : 'Save Product'}
-          </div>
+          <FiSave className="mr-2" />
+          {loading ? 'Saving...' : 'Save Product'}
         </button>
       </form>
     </motion.div>

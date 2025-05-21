@@ -11,11 +11,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head />
-      <body className="bg-gray-800 text-gray-200 min-h-screen font-sans">
-      <ToastContainer position="top-right" autoClose={5000} />
+      <body className="bg-camel text-black min-h-screen font-sans">
+        <ToastContainer position="top-right" autoClose={5000} />
         <Toaster position="top-right" reverseOrder={false} />
 
-        {/* Navbar inside AuthProvider to handle authentication state */}
         <AuthProvider>
           {/* <Navbar /> */}
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

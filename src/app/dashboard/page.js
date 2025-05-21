@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 export default function DashboardRedirect() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  
 
   useEffect(() => {
     const token = localStorage.getItem('token');

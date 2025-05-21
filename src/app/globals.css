@@ -1,77 +1,119 @@
 @import "tailwindcss";
 
-/* Default theme: Dark */
+/* Theme Definitions */
+:root {
+  /* Light Theme - Camel Desert Inspired */
+  --bg-color: #f5e7d6;        /* Light camel/sand color */
+  --text-color: #3a2c21;      /* Dark brown for text */
+  --primary-color: #c19a6b;   /* Medium camel brown */
+  --secondary-color: #8b6b3d; /* Darker camel brown */
+  --accent-color: #d4a76a;    /* Golden camel highlight */
+}
+
+/* Dark Theme - Camel Night Inspired */
 html[data-theme='dark'] {
-  --bg-color: #1f1f1f;
-  --text-color: #f1f1f1;
-  --primary-color: #4f83cc;
+  --bg-color: #2a2118;        /* Dark brown */
+  --text-color: #e0d0b8;      /* Light camel/sand */
+  --primary-color: #b78d65;   /* Muted camel brown */
+  --secondary-color: #8b6b3d; /* Darker camel brown */
+  --accent-color: #d4a76a;    /* Golden camel highlight */
 }
 
-html[data-theme='light'] {
-  --bg-color: #f5f5f5;
-  --text-color: #1f1f1f;
-  --primary-color: #4f83cc;
-}
-/* Default (light) theme */
+/* Default Theme */
 html {
-  --bg-color: #ffffff;
-  --text-color: #000000;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  @apply transition-colors duration-200;
 }
 
-html.dark {
-  /* Dark theme colors */
-  --bg-color: #1f1f1f;
-  --text-color: #f1f1f1;
-}
-
+/* Element Styles */
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
   font-family: 'Arial', sans-serif;
-}
-
-button {
-  background-color: #4f83cc;
-  color: var(--text-color);
-}
-
-button:hover {
-  background-color: #2b64a8;
-}
-
-body {
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-family: 'Arial', sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
 }
 
 nav {
   background-color: var(--bg-color);
   color: var(--text-color);
+  border-bottom: 1px solid var(--secondary-color);
 }
 
 a {
   color: var(--primary-color);
+  transition: color 0.2s ease;
 }
 
-button {
+a:hover {
+  color: var(--secondary-color);
+}
+
+button, .btn {
   background-color: var(--primary-color);
   color: var(--text-color);
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-button:hover {
-  background-color: #2b64a8;
+button:hover, .btn:hover {
+  background-color: var(--secondary-color);
+  transform: translateY(-1px);
 }
 
+/* Form Elements */
+input, textarea, select {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--primary-color);
+  color: var(--text-color);
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+}
 
+/* Utility Classes */
+.text-primary {
+  color: var(--primary-color);
+}
+
+.bg-primary {
+  background-color: var(--primary-color);
+}
+
+.border-primary {
+  border-color: var(--primary-color);
+}
+
+/* Animation for theme transition */
 @layer base {
   html {
     @apply transition-colors duration-200;
   }
-}@layer base {
-  html {
-    @apply transition-colors duration-200;
+  * {
+    @apply transition-colors duration-100;
   }
 }
+.form-input-with-icon {
+  @apply relative;
+}k
 
- 
+.form-input-with-icon .input-icon {
+  @apply absolute left-3 top-1/2 transform -translate-y-1/2 text-amber-600;
+}
+
+.form-input-with-icon input {
+  @apply pl-10; /* Make room for the icon */
+}
+
+/* Select with Icon */
+.form-select-with-icon {
+  @apply relative;
+}
+
+.form-select-with-icon .select-icon {
+  @apply absolute right-3 top-1/2 transform -translate-y-1/2 text-amber-600 pointer-events-none;
+}

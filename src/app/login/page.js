@@ -83,10 +83,10 @@ const Login = () => {
       {/* Animated background elements */}
       {isBackgroundReady && (
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          {backgroundElements.map((element, i) => (
+            {backgroundElements.map((element, i) => (
             <div 
               key={i}
-              className={`absolute rounded-full opacity-10 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-600'}`}
+              className={`absolute rounded-full opacity-20 ${isDarkMode ? 'bg-[#8B5A2B]' : 'bg-[#D2B48C]'}`}
               style={{
                 width: element.width,
                 height: element.height,
@@ -101,9 +101,9 @@ const Login = () => {
       )}
 
       {/* Main login card */}
-      <div className={`relative w-full max-w-md z-10 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl overflow-hidden transition-all duration-500 transform hover:scale-[1.01]`}>
-        {/* Decorative header */}
-        <div className={`h-2 ${isDarkMode ? 'bg-gradient-to-r from-purple-600 to-blue-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`}></div>
+       <div className={`relative w-full max-w-md z-10 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl overflow-hidden transition-all duration-500 transform hover:scale-[1.01] border-2 ${isDarkMode ? 'border-[#8B5A2B]' : 'border-[#D2B48C]'}`}>
+        {/* Decorative header - updated with camel colors */}
+        <div className={`h-2 ${isDarkMode ? 'bg-gradient-to-r from-[#8B5A2B] to-[#C19A6B]' : 'bg-gradient-to-r from-[#D2B48C] to-[#E6D5B8]'}`}></div>
         
         <div className="p-8 sm:p-10">
           <div className="flex justify-between items-start mb-8">
