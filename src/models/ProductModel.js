@@ -10,7 +10,4 @@ const productSchema = new mongoose.Schema({
 });
 
 // ✅ Prevent OverwriteModelError
-
-const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
-
-export default Product;
+export const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
