@@ -14,10 +14,10 @@ import { useRouter } from 'next/navigation'
 import { MdLogout } from 'react-icons/md';
 import { useAuth } from '@/context/AuthContext';
 import * as XLSX from 'xlsx';
-import DatePicker from 'react-datepicker'; // Add this import
-import 'react-datepicker/dist/react-datepicker.css'; // Add styles for DatePicker
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
-export default function SalesSummary({isAdmin }) {
+export default function SalesSummary({ isAdmin }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== 'undefined') {
       return !!localStorage.getItem('token');
@@ -28,14 +28,14 @@ export default function SalesSummary({isAdmin }) {
 
   const [summary, setSummary] = useState([]);
   const [filters, setFilters] = useState({
-  dateRange: 'today',
-  product: '',
-  transactionType: 'Sales',
-  customStartDate: null,
-  customEndDate: null,
-  selectedMonth: new Date().getMonth(),
-  selectedYear: new Date().getFullYear()
-});
+    dateRange: 'today',
+    product: '',
+    transactionType: 'Sales',
+    customStartDate: null,
+    customEndDate: null,
+    selectedMonth: new Date().getMonth(),
+    selectedYear: new Date().getFullYear()
+  });
   const [products, setProducts] = useState([]);
   const [editingLog, setEditingLog] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -73,9 +73,25 @@ export default function SalesSummary({isAdmin }) {
   }
 
   useEffect(() => {
+    // Fetch data immediately when component mounts
     fetchData();
+    
+    // Set up interval for periodic refresh
     const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
+    
+    // Set up visibility change listener for immediate refresh when user returns to tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [filters]);
 
   async function fetchData() {
@@ -85,119 +101,152 @@ export default function SalesSummary({isAdmin }) {
         fetch('/api/products', { cache: 'no-store' }),
         fetch('/api/inventory', { cache: 'no-store' }),
       ]);
-  
+
       if (!productsRes.ok || !logsRes.ok) {
         throw new Error('Failed to fetch data');
       }
-  
+
       const productsData = await productsRes.json();
       const logsData = await logsRes.json();
-  
-      console.log('Sample log dates:', logsData.slice(0, 3).map(log => log.date));
-      
+
       if (productsData && Array.isArray(productsData.products)) {
         setProducts(productsData.products);
       } else {
         console.error("Fetched products is not an array:", productsData);
       }
-  
-      setLogs(logsData);
-      setLastUpdated(new Date());;
-  
-       
-        const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayString = today.toISOString().split('T')[0];
-    
-    console.log("Today's date string:", todayString);
-  
+
+      // Process date filtering first
       let filteredLogs = logsData.filter(log => 
         log.transactionType === 'Sales' || 
         log.transactionType === 'Opening Stock' || 
         log.transactionType === 'Closing Stock' ||
         log.transactionType === 'Purchase'
       );
-  
-      if (filters.dateRange === 'today') {
-        filteredLogs = filteredLogs.filter((log) => {
-          const logDate = new Date(log.date);
-          const logDateString = logDate.toISOString().split('T')[0];
-          console.log(`Comparing: ${logDateString} === ${todayString}`);
-          return logDateString === todayString;
-        });
-        console.log('Filtered logs for today:', filteredLogs);
-      } 
 
-switch(filters.dateRange) {
-  case 'today':
-    filteredLogs = filteredLogs.filter(log => {
-      const logDate = new Date(log.date);
-      return logDate.toDateString() === today.toDateString();
+      // Get current date in local timezone
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      // Apply date filters
+      switch(filters.dateRange) {
+        case 'today':
+          filteredLogs = filteredLogs.filter(log => {
+            const logDate = new Date(log.date);
+            return logDate >= today;
+          });
+          break;
+        
+        case 'yesterday':
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+          filteredLogs = filteredLogs.filter(log => {
+            const logDate = new Date(log.date);
+            return logDate >= yesterday && logDate < today;
+          });
+          break;
+        
+        case 'last7days':
+          const last7Days = new Date(today);
+          last7Days.setDate(last7Days.getDate() - 7);
+          filteredLogs = filteredLogs.filter(log => {
+            const logDate = new Date(log.date);
+            return logDate >= last7Days && logDate <= now;
+          });
+          break;
+        
+        case 'thisMonth':
+          const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          filteredLogs = filteredLogs.filter(log => {
+            const logDate = new Date(log.date);
+            return logDate >= firstDayOfMonth && logDate <= now;
+          });
+          break;
+        
+        case 'lastMonth':
+          const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+          const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+          filteredLogs = filteredLogs.filter(log => {
+            const logDate = new Date(log.date);
+            return logDate >= firstDayLastMonth && logDate <= lastDayLastMonth;
+          });
+          break;
+        
+        case 'custom':
+          if (filters.customStartDate && filters.customEndDate) {
+            const start = new Date(filters.customStartDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(filters.customEndDate);
+            end.setHours(23, 59, 59, 999);
+            filteredLogs = filteredLogs.filter(log => {
+              const logDate = new Date(log.date);
+              return logDate >= start && logDate <= end;
+            });
+          }
+          break;
+        
+        case 'monthSelect':
+          const firstDayOfSelectedMonth = new Date(filters.selectedYear, filters.selectedMonth, 1);
+          const lastDayOfSelectedMonth = new Date(filters.selectedYear, filters.selectedMonth + 1, 0);
+          lastDayOfSelectedMonth.setHours(23, 59, 59, 999);
+          filteredLogs = filteredLogs.filter(log => {
+            const logDate = new Date(log.date);
+            return logDate >= firstDayOfSelectedMonth && logDate <= lastDayOfSelectedMonth;
+          });
+          break;
+        
+        default:
+          break;
+      }
+
+      // Apply product filter if set
+      if (filters.product) {
+        filteredLogs = filteredLogs.filter(log => log.productId?._id === filters.product);
+      }
+
+      // Apply transaction type filter if set
+      if (filters.transactionType && filters.transactionType !== 'all') {
+        if (filters.transactionType === 'Closing Stock') {
+          filteredLogs = filteredLogs.filter(log => 
+            log.transactionType === 'Closing Stock' && log.quantityBottles >= 0
+          );
+        } else {
+          filteredLogs = filteredLogs.filter(log => log.transactionType === filters.transactionType);
+        }
+      }
+
+      // Set the filtered logs
+      setLogs(filteredLogs);
+      setLastUpdated(new Date());
+
+const handleDeleteProduct = async (productId) => {
+  if (!confirm('Are you sure you want to delete this product and all its inventory records? This cannot be undone.')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/products/${productId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
     });
-    break;
-  
-  case 'yesterday':
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    filteredLogs = filteredLogs.filter(log => {
-      const logDate = new Date(log.date);
-      return logDate.toDateString() === yesterday.toDateString();
-    });
-    break;
-  
-  case 'last7days':
-    const last7Days = new Date(today);
-    last7Days.setDate(last7Days.getDate() - 7);
-    filteredLogs = filteredLogs.filter(log => {
-      const logDate = new Date(log.date);
-      return logDate >= last7Days && logDate <= today;
-    });
-    break;
-  
-  case 'thisMonth':
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    filteredLogs = filteredLogs.filter(log => {
-      const logDate = new Date(log.date);
-      return logDate >= firstDayOfMonth && logDate <= today;
-    });
-    break;
-  
-  case 'lastMonth':
-    const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-    filteredLogs = filteredLogs.filter(log => {
-      const logDate = new Date(log.date);
-      return logDate >= firstDayLastMonth && logDate <= lastDayLastMonth;
-    });
-    break;
-  
-  case 'custom':
-    if (filters.customStartDate && filters.customEndDate) {
-      const start = new Date(filters.customStartDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(filters.customEndDate);
-      end.setHours(23, 59, 59, 999);
-      filteredLogs = filteredLogs.filter(log => {
-        const logDate = new Date(log.date);
-        return logDate >= start && logDate <= end;
-      });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete product');
     }
-    break;
-  
-  case 'monthSelect':
-    const firstDayOfSelectedMonth = new Date(filters.selectedYear, filters.selectedMonth, 1);
-    const lastDayOfSelectedMonth = new Date(filters.selectedYear, filters.selectedMonth + 1, 0);
-    lastDayOfSelectedMonth.setHours(23, 59, 59, 999);
-    filteredLogs = filteredLogs.filter(log => {
-      const logDate = new Date(log.date);
-      return logDate >= firstDayOfSelectedMonth && logDate <= lastDayOfSelectedMonth;
-    });
-    break;
-  
-  default:
-    break;
-}
-  
+
+    // Refresh data after successful deletion
+    await fetchData();
+    setEditingLog(null);
+    alert('Product deleted successfully');
+  } catch (error) {
+    console.error('Delete product error:', error);
+    alert(`Error deleting product: ${error.message}`);
+  }
+};
+
+
+      // Process summary data
+
       const data = productsData.products
         .map((product) => {
           if (filters.product && product._id !== filters.product) return null;
@@ -220,7 +269,8 @@ switch(filters.dateRange) {
             .filter((log) => log.transactionType === 'Closing Stock')
             .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
-          let closingQty = closingStockLog?.quantityBottles;
+          // Fix for negative closing stock value
+          let closingQty = closingStockLog ? Math.abs(closingStockLog.quantityBottles) : undefined;
 
           if (closingQty === undefined) {
             const rawSales = productLogs
@@ -236,7 +286,8 @@ switch(filters.dateRange) {
           const latestDate =
             productLogs.length > 0
               ? productLogs.reduce(
-                  (latest, log) => (log.date > latest ? log.date : latest),
+                  (latest, log) =>
+                    new Date(log.date) > new Date(latest) ? log.date : latest,
                   productLogs[0].date
                 )
               : '-';
@@ -254,7 +305,7 @@ switch(filters.dateRange) {
           };
         })
         .filter(Boolean);
-  
+
       setSummary(data);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -262,6 +313,9 @@ switch(filters.dateRange) {
       setIsLoading(false);
     }
   }
+
+   
+      
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -527,20 +581,21 @@ switch(filters.dateRange) {
       </div>
 
       {/* Transaction Type Filter */}
-      <div>
-        <label className="block text-sm font-medium mb-1 text-gray-700">Transaction Type</label>
-        <select
-          name="transactionType"
-          value={filters.transactionType}
-          onChange={handleFilterChange}
-          className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-        >
-          <option value="Sales">Sales</option>
-          <option value="Purchase">Purchase</option>
-          <option value="Opening Stock">Opening Stock</option>
-          <option value="Closing Stock">Closing Stock</option>
-        </select>
-      </div>
+       <div>
+  <label className="block text-sm font-medium mb-1 text-gray-700">Transaction Type</label>
+  <select
+    name="transactionType"
+    value={filters.transactionType}
+    onChange={handleFilterChange}
+    className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+  >
+    <option value="all">All Transactions</option>
+    <option value="Sales">Sales</option>
+    <option value="Purchase">Purchase</option>
+    <option value="Opening Stock">Opening Stock</option>
+    <option value="Closing Stock">Closing Stock</option>
+  </select>
+</div>
     </div>
   </motion.div>
 )}
@@ -604,111 +659,103 @@ switch(filters.dateRange) {
         {activeTab === 'summary' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Bar Chart */}
-            <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200 lg:col-span-2">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-                <h3 className="text-lg font-semibold">Inventory Overview</h3>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="flex items-center text-xs sm:text-sm">
-                    <span className="w-3 h-3 rounded-full bg-indigo-500 mr-1"></span>
-                    Sold
-                  </span>
-                  <span className="flex items-center text-xs sm:text-sm">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>
-                    Purchased
-                  </span>
-                  <span className="flex items-center text-xs sm:text-sm">
-                    <span className="w-3 h-3 rounded-full bg-purple-500 mr-1"></span>
-                    Remaining
-                  </span>
-                </div>
-              </div>
-              <div className="h-80 min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart 
-                    data={summary} 
-                    margin={{ 
-                      top: 20, 
-                      right: 20, 
-                      left: 20, 
-                      bottom: summary.length > 5 ? 70 : 40
-                    }}
-                    barCategoryGap="15%"
-                    layout={summary.length > 8 ? "vertical" : "horizontal"}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={summary.length <= 8} stroke="#E5E7EB" strokeOpacity={0.5} />
-                    {summary.length > 8 ? (
-                      <YAxis 
-                        dataKey="name"
-                        type="category"
-                        stroke="#6B7280"
-                        tick={{ fontSize: 12 }}
-                        tickLine={false}
-                        width={100}
-                      />
-                    ) : (
-                      <XAxis 
-                        dataKey="name"
-                        stroke="#6B7280"
-                        tick={{ fontSize: 12 }}
-                        tickLine={false}
-                        interval={0}
-                        angle={summary.length > 5 ? -45 : 0}
-                        dx={summary.length > 5 ? -10 : 0}
-                        dy={summary.length > 5 ? 20 : 0}
-                        height={summary.length > 5 ? 70 : 40}
-                      />
-                    )}
-                    {summary.length > 8 ? (
-                      <XAxis 
-                        type="number"
-                        stroke="#6B7280"
-                        tick={{ fontSize: 12 }}
-                        tickLine={false}
-                      />
-                    ) : (
-                      <YAxis 
-                        stroke="#6B7280"
-                        tick={{ fontSize: 12 }}
-                        tickLine={false}
-                        width={40}
-                      />
-                    )}
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#1F2937', 
-                        color: '#fff',
-                        borderRadius: '0.5rem',
-                        border: 'none',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                      }} 
-                      wrapperStyle={{ zIndex: 50 }} 
-                      cursor={{ fill: 'rgba(165, 180, 252, 0.2)' }}
-                    />
-                    <Bar 
-                      dataKey="sold" 
-                      name="Sold" 
-                      radius={[4, 4, 0, 0]} 
-                      fill="#6366F1" 
-                      maxBarSize={40}
-                    />
-                    <Bar 
-                      dataKey="purchased" 
-                      name="Purchased" 
-                      radius={[4, 4, 0, 0]} 
-                      fill="#10B981" 
-                      maxBarSize={40}
-                    />
-                    <Bar 
-                      dataKey="remaining" 
-                      name="Remaining" 
-                      radius={[4, 4, 0, 0]} 
-                      fill="#8B5CF6" 
-                      maxBarSize={40}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+             {/* Bar Chart */}
+<div className="bg-white p-4 rounded-xl shadow-md border border-gray-200 lg:col-span-2">
+  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+    <h3 className="text-lg font-semibold">Inventory Overview</h3>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="flex items-center text-xs sm:text-sm">
+        <span className="w-3 h-3 rounded-full bg-indigo-500 mr-1"></span>
+        Sold
+      </span>
+      <span className="flex items-center text-xs sm:text-sm">
+        <span className="w-3 h-3 rounded-full bg-emerald-500 mr-1"></span>
+        Purchased
+      </span>
+      <span className="flex items-center text-xs sm:text-sm">
+        <span className="w-3 h-3 rounded-full bg-purple-500 mr-1"></span>
+        Remaining
+      </span>
+    </div>
+  </div>
+  <div className="h-80 min-w-0">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart 
+        data={summary} 
+        margin={{ 
+          top: 20, 
+          right: 20, 
+          left: 20, 
+          bottom: summary.length > 5 ? 70 : 40
+        }}
+        barCategoryGap="15%"
+        layout="vertical" // Always use vertical layout for better label readability
+      >
+        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" strokeOpacity={0.5} />
+        <YAxis 
+          dataKey="name"
+          type="category"
+          stroke="#6B7280"
+          tick={{ fontSize: 12 }}
+          tickLine={false}
+          width={120}
+          interval={0}
+        />
+        <XAxis 
+          type="number"
+          stroke="#6B7280"
+          tick={{ fontSize: 12 }}
+          tickLine={false}
+        />
+        <Tooltip 
+          contentStyle={{ 
+            backgroundColor: '#1F2937', 
+            color: '#fff',
+            borderRadius: '0.5rem',
+            border: 'none',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+          }} 
+          wrapperStyle={{ zIndex: 50 }} 
+          cursor={{ fill: 'rgba(165, 180, 252, 0.2)' }}
+          formatter={(value, name) => [`${value} bottles`, name]}
+        />
+        <Legend 
+          verticalAlign="top"
+          height={40}
+          wrapperStyle={{
+            paddingBottom: '10px'
+          }}
+          formatter={(value) => (
+            <span className="text-xs sm:text-sm text-gray-700">
+              {value}
+            </span>
+          )}
+        />
+        <Bar 
+          dataKey="sold" 
+          name="Sold" 
+          radius={[0, 4, 4, 0]} 
+          fill="#6366F1" 
+          maxBarSize={40}
+        />
+        <Bar 
+          dataKey="purchased" 
+          name="Purchased" 
+          radius={[0, 4, 4, 0]} 
+          fill="#10B981" 
+          maxBarSize={40}
+        />
+        <Bar 
+          dataKey="remaining" 
+          name="Remaining" 
+          radius={[0, 4, 4, 0]} 
+          fill="#8B5CF6" 
+          maxBarSize={40}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+</div>
 
             {/* Radial Bar Chart */}
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl border-2 border-indigo-100">
@@ -841,141 +888,129 @@ switch(filters.dateRange) {
             </div>
 
             {/* Area Chart */}
-            <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">Inventory Trend</h3>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={summary.map(item => ({
-                      name: item.name,
-                      sold: item.sold,
-                      purchased: item.purchased,
-                      remaining: item.remaining
-                    }))}
-                    margin={{ 
-                      top: 20, 
-                      right: 20, 
-                      left: 30,
-                      bottom: summary.length > 5 ? 100 : 70
-                    }}
-                    layout={summary.length > 8 ? "vertical" : "horizontal"}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.5} />
-                    
-                    {summary.length > 8 ? (
-                      <>
-                        <YAxis 
-                          dataKey="name" 
-                          type="category"
-                          stroke="#6B7280"
-                          tick={{ fontSize: 12 }}
-                          tickLine={false}
-                          width={120}
-                          interval={0}
-                        />
-                        <XAxis 
-                          type="number"
-                          stroke="#6B7280"
-                          tick={{ fontSize: 12 }}
-                          tickLine={false}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <XAxis 
-                          dataKey="name"
-                          stroke="#6B7280"
-                          tick={{ fontSize: 12 }}
-                          tickLine={false}
-                          interval={0}
-                          angle={summary.length > 4 ? -45 : 0}
-                          dx={summary.length > 4 ? -10 : 0}
-                          dy={summary.length > 4 ? 25 : 10}
-                          height={summary.length > 4 ? 80 : 40}
-                        />
-                        <YAxis 
-                          stroke="#6B7280"
-                          tick={{ fontSize: 12 }}
-                          tickLine={false}
-                          width={40}
-                        />
-                      </>
-                    )}
+            {/* Area Chart - Inventory Trend */}
+<div className="bg-white p-4 rounded-xl shadow-md border border-gray-200 lg:col-span-3">
+  <h3 className="text-lg font-semibold mb-4">Inventory Trend</h3>
+  <div className="h-[400px]">
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart
+        data={summary.map(item => ({
+          name: item.name,
+          sold: item.sold,
+          purchased: item.purchased,
+          remaining: item.remaining
+        }))}
+        margin={{ 
+          top: 20, 
+          right: 20, 
+          left: 30,
+          bottom: 80 // Increased bottom margin for rotated labels
+        }}
+        layout="vertical" // Changed to vertical layout for better readability
+      >
+        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" strokeOpacity={0.5} />
+        
+        <YAxis 
+          dataKey="name"
+          type="category"
+          stroke="#6B7280"
+          tick={{ fontSize: 12 }}
+          tickLine={false}
+          width={120}
+          interval={0}
+        />
+        
+        <XAxis 
+          type="number"
+          stroke="#6B7280"
+          tick={{ fontSize: 12 }}
+          tickLine={false}
+        />
+        
+        <Tooltip 
+          contentStyle={{ 
+            backgroundColor: '#1F2937', 
+            color: '#fff',
+            borderRadius: '0.5rem',
+            border: 'none',
+            minWidth: '220px',
+            padding: '12px'
+          }}
+          formatter={(value, name, props) => {
+            const total = props.payload.sold + props.payload.purchased + props.payload.remaining;
+            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+            return [
+              <div key="tooltip-content" className="space-y-2">
+                <div className="font-bold text-lg text-indigo-300 border-b border-gray-600 pb-1">
+                  {props.payload.name}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="text-sm">Sold:</div>
+                  <div className="text-right font-medium">
+                    {props.payload.sold} <span className="text-xs text-gray-400">({percentage}%)</span>
+                  </div>
+                  <div className="text-sm">Purchased:</div>
+                  <div className="text-right font-medium">
+                    {props.payload.purchased} <span className="text-xs text-gray-400">({percentage}%)</span>
+                  </div>
+                  <div className="text-sm">Remaining:</div>
+                  <div className="text-right font-medium">
+                    {props.payload.remaining} <span className="text-xs text-gray-400">({percentage}%)</span>
+                  </div>
+                </div>
+              </div>,
+              name
+            ];
+          }}
+        />
 
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#1F2937', 
-                        color: '#fff',
-                        borderRadius: '0.5rem',
-                        border: 'none',
-                        minWidth: '220px',
-                        padding: '12px'
-                      }}
-                      formatter={(value, name, props) => {
-                        const total = props.payload.sold + props.payload.purchased + props.payload.remaining;
-                        const percentage = ((value / total) * 100).toFixed(1);
-                        return [
-                          <div key="tooltip-content" className="space-y-2">
-                            <div className="font-bold text-lg text-indigo-300 border-b border-gray-600 pb-1">
-                              {props.payload.name}
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="text-sm">Sold:</div>
-                              <div className="text-right font-medium">
-                                {props.payload.sold} <span className="text-xs text-gray-400">({((props.payload.sold/total)*100).toFixed(1)}%)</span>
-                              </div>
-                              <div className="text-sm">Purchased:</div>
-                              <div className="text-right font-medium">
-                                {props.payload.purchased} <span className="text-xs text-gray-400">({((props.payload.purchased/total)*100).toFixed(1)}%)</span>
-                              </div>
-                              <div className="text-sm">Remaining:</div>
-                              <div className="text-right font-medium">
-                                {props.payload.remaining} <span className="text-xs text-gray-400">({((props.payload.remaining/total)*100).toFixed(1)}%)</span>
-                              </div>
-                            </div>
-                          </div>,
-                          name
-                        ];
-                      }}
-                    />
+        <Area 
+          type="monotone" 
+          dataKey="sold" 
+          name="Sold" 
+          stackId="1" 
+          stroke="#6366F1" 
+          fill="#6366F1" 
+          fillOpacity={0.3}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+        />
+        <Area 
+          type="monotone" 
+          dataKey="purchased" 
+          name="Purchased" 
+          stackId="1" 
+          stroke="#10B981" 
+          fill="#10B981" 
+          fillOpacity={0.3}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+        />
+        <Area 
+          type="monotone" 
+          dataKey="remaining" 
+          name="Remaining" 
+          stackId="1" 
+          stroke="#8B5CF6" 
+          fill="#8B5CF6" 
+          fillOpacity={0.3}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+        />
 
-                    <Area 
-                      type="monotone" 
-                      dataKey="sold" 
-                      name="Sold" 
-                      stackId="1" 
-                      stroke="#6366F1" 
-                      fill="#6366F1" 
-                      fillOpacity={0.3}
-                      activeDot={{ r: 6, strokeWidth: 2 }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="purchased" 
-                      name="Purchased" 
-                      stackId="1" 
-                      stroke="#10B981" 
-                      fill="#10B981" 
-                      fillOpacity={0.3}
-                      activeDot={{ r: 6, strokeWidth: 2 }}
-                    />
-
-                    <Legend 
-                      verticalAlign="top" 
-                      height={50}
-                      wrapperStyle={{
-                        paddingBottom: '10px'
-                      }}
-                      formatter={(value) => (
-                        <span className="text-sm text-gray-700">
-                          {value}
-                        </span>
-                      )}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+        <Legend 
+          verticalAlign="top" 
+          height={50}
+          wrapperStyle={{
+            paddingBottom: '10px'
+          }}
+          formatter={(value) => (
+            <span className="text-sm text-gray-700">
+              {value}
+            </span>
+          )}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  </div>
+</div>
           </div>
         )}
         
@@ -1090,64 +1125,57 @@ switch(filters.dateRange) {
             ))}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {logs.length === 0 ? (
-            <tr>
-              <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
-                {isLoading ? 'Loading data...' : 'No logs available'}
-              </td>
-            </tr>
-          ) : (
-            [...logs]
-              .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by date descending
-              .filter(log => 
-                (filters.product ? log.productId?._id === filters.product : true) &&
-                (log.transactionType === 'Sales' || 
-                 log.transactionType === 'Purchase' || 
-                 log.transactionType === 'Opening Stock' || 
-                 log.transactionType === 'Closing Stock')
-              )
-              .map((log) => (
-                <tr key={log._id} className="hover:bg-amber-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {log.productId?.productName || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      log.transactionType === 'Sales' ? 'bg-emerald-100 text-emerald-800' :
-                      log.transactionType === 'Purchase' ? 'bg-blue-100 text-blue-800' :
-                      log.transactionType === 'Opening Stock' ? 'bg-purple-100 text-purple-800' :
-                      'bg-indigo-100 text-indigo-800'
-                    }`}>
-                      {log.transactionType}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {log.quantityBottles} bottles
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(log.date).toLocaleString()} {/* Format date for better readability */}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEdit(log)}
-                        className="text-amber-700 hover:text-amber-900 p-1 rounded-full hover:bg-amber-100"
-                      >
-                        <MdEdit className="text-lg" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(log._id)}
-                        className="text-amber-700 hover:text-amber-900 p-1 rounded-full hover:bg-amber-100"
-                      >
-                        <MdDelete className="text-lg" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-          )}
-        </tbody>
+         <tbody className="bg-white divide-y divide-gray-200">
+  {logs.length === 0 ? (
+    <tr>
+      <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+        {isLoading ? 'Loading data...' : 'No logs available for selected filters'}
+      </td>
+    </tr>
+  ) : (
+    logs
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map((log) => (
+        <tr key={log._id} className="hover:bg-amber-50 transition-colors">
+          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+            {log.productId?.productName || 'N/A'}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <span className={`px-2 py-1 rounded-full text-xs ${
+              log.transactionType === 'Sales' ? 'bg-emerald-100 text-emerald-800' :
+              log.transactionType === 'Purchase' ? 'bg-blue-100 text-blue-800' :
+              log.transactionType === 'Opening Stock' ? 'bg-purple-100 text-purple-800' :
+              'bg-indigo-100 text-indigo-800'
+            }`}>
+              {log.transactionType}
+            </span>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {log.quantityBottles} bottles
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {new Date(log.date).toLocaleString()}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => handleEdit(log)}
+                className="text-amber-700 hover:text-amber-900 p-1 rounded-full hover:bg-amber-100"
+              >
+                <MdEdit className="text-lg" />
+              </button>
+              <button
+                onClick={() => handleDelete(log._id)}
+                className="text-amber-700 hover:text-amber-900 p-1 rounded-full hover:bg-amber-100"
+              >
+                <MdDelete className="text-lg" />
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))
+  )}
+</tbody>
       </table>
     </div>
   </div>
@@ -1155,7 +1183,9 @@ switch(filters.dateRange) {
        </div>
  
        {/* Edit Modal */}
-        <AnimatePresence>
+         {/* Edit Modal */}
+   {/* Edit Modal */}
+<AnimatePresence>
   {editingLog && (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1170,7 +1200,9 @@ switch(filters.dateRange) {
         className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-amber-200"
       >
         <div className="flex justify-between items-center p-4 border-b border-amber-200 bg-amber-50 rounded-t-xl">
-          <h3 className="text-lg font-semibold text-amber-800">Edit Inventory Log</h3>
+          <h3 className="text-lg font-semibold text-amber-800">
+            {editingLog._id === 'new' ? 'Add New' : 'Edit'} Inventory Log
+          </h3>
           <button 
             onClick={handleCancelEdit} 
             className="text-amber-700 hover:text-amber-900 p-1 rounded-full hover:bg-amber-100"
@@ -1183,54 +1215,168 @@ switch(filters.dateRange) {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1 text-amber-800">Product</label>
-              <div className="p-2 bg-amber-50 rounded-lg text-amber-900">
-                {editingLog.productId?.productName || 'N/A'}
-              </div>
+              <select
+                name="productId"
+                value={editingLog.productId?._id || ''}
+                onChange={(e) => {
+                  const selectedProduct = products.find(p => p._id === e.target.value);
+                  setEditingLog({
+                    ...editingLog,
+                    productId: selectedProduct || null
+                  });
+                }}
+                className="w-full p-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
+                required
+              >
+                <option value="">Select Product</option>
+                {products.map(product => (
+                  <option key={product._id} value={product._id}>
+                    {product.productName}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <div>
               <label className="block text-sm font-medium mb-1 text-amber-800">Transaction Type</label>
-              <div className="p-2 bg-amber-50 rounded-lg text-amber-900">
-                {editingLog.transactionType}
-              </div>
+              <select
+                name="transactionType"
+                value={editingLog.transactionType}
+                onChange={(e) => {
+                  setEditingLog({
+                    ...editingLog,
+                    transactionType: e.target.value,
+                    // Reset quantity if switching to closing stock to ensure positive value
+                    quantityBottles: e.target.value === 'Closing Stock' ? 
+                      Math.abs(editingLog.quantityBottles) : 
+                      editingLog.quantityBottles
+                  });
+                }}
+                className="w-full p-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
+                required
+              >
+                <option value="Sales">Sales</option>
+                <option value="Purchase">Purchase</option>
+                <option value="Opening Stock">Opening Stock</option>
+                <option value="Closing Stock">Closing Stock</option>
+              </select>
             </div>
             
             <div>
-              <label htmlFor="quantityBottles" className="block text-sm font-medium mb-1 text-amber-800">Quantity (Bottles)</label>
+              <label htmlFor="quantityBottles" className="block text-sm font-medium mb-1 text-amber-800">
+                Quantity (Bottles)
+              </label>
               <input
                 type="number"
                 id="quantityBottles"
                 name="quantityBottles"
-                value={editingLog.quantityBottles}
-                onChange={(e) => setEditingLog({ ...editingLog, quantityBottles: parseInt(e.target.value) || 0 })}
+                value={
+                  editingLog.transactionType === 'Closing Stock' 
+                    ? Math.abs(editingLog.quantityBottles)
+                    : editingLog.quantityBottles
+                }
+                onChange={(e) => {
+                  let value = parseInt(e.target.value) || 0;
+                  if (editingLog.transactionType === 'Closing Stock') {
+                    // Ensure closing stock is always positive
+                    value = Math.abs(value);
+                  }
+                  setEditingLog({ ...editingLog, quantityBottles: value });
+                }}
                 className="w-full p-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
                 min="0"
                 required
               />
             </div>
-           
+            
             <div>
               <label className="block text-sm font-medium mb-1 text-amber-800">Date</label>
-              <div className="p-2 bg-amber-50 rounded-lg text-amber-900">
-                {editingLog.date}
-              </div>
+              <DatePicker
+                selected={editingLog.date ? new Date(editingLog.date) : new Date()}
+                onChange={(date) => setEditingLog({ ...editingLog, date: date.toISOString() })}
+                showTimeSelect
+                timeFormat="HH:mm"
+                timeIntervals={15}
+                dateFormat="MMMM d, yyyy h:mm aa"
+                className="w-full p-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                required
+              />
             </div>
           </div>
           
-          <div className="mt-6 flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="px-4 py-2 border border-amber-300 rounded-lg text-sm font-medium text-amber-800 hover:bg-amber-100 transition-all"
-            >
-              Cancel
+          <div className="mt-6 flex justify-between items-center">
+            {editingLog._id !== 'new' && (
+               <button
+    type="button"
+    onClick={async () => {
+      // Show confirmation dialog
+      const confirmDelete = window.confirm(
+        '⚠️ WARNING: This will permanently delete this product and ALL its inventory records.\n\n' +
+        '• All sales data for this product will be lost\n' +
+        '• All purchase records will be deleted\n' +
+        '• This action cannot be undone\n\n' +
+        'Are you absolutely sure you want to proceed?'
+      );
+      
+      if (confirmDelete) {
+        try {
+          setIsLoading(true);
+          const response = await fetch(`/api/products/${editingLog.productId._id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to delete product');
+          }
+
+          // Show success message
+          alert('✅ Product and all associated records deleted successfully');
+          
+          // Refresh data and close modal
+          await fetchData();
+          setEditingLog(null);
+        } catch (error) {
+          console.error('Delete error:', error);
+          alert(`❌ Error: ${error.message}`);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    }}
+    disabled={isLoading}
+    className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+      isLoading
+        ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+        : 'bg-red-100 text-red-700 hover:bg-red-200'
+    }`}
+  >
+    {isLoading ? (
+      <FiRefreshCw className="animate-spin" />
+    ) : (
+      <>
+        <MdDelete />
+        Delete Product
+      </>
+    )}
             </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-lg text-sm font-medium hover:from-amber-700 hover:to-amber-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
-            >
-              <MdSave /> Save Changes
-            </button>
+            )}
+            
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-4 py-2 border border-amber-300 rounded-lg text-sm font-medium text-amber-800 hover:bg-amber-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-lg text-sm font-medium hover:from-amber-700 hover:to-amber-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+              >
+                <MdSave /> {editingLog._id === 'new' ? 'Add' : 'Save'}
+              </button>
+            </div>
           </div>
         </form>
       </motion.div>
