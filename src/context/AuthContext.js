@@ -1,16 +1,13 @@
-// context/AuthContext.js
 'use client';
-
 import { createContext, useContext, useState, useEffect } from 'react';
 
-// Create Context for Authentication
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
+export function AuthProvider({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Check if the user is logged in by checking the token in localStorage
+    // Check if there's a token in localStorage and set authentication state accordingly
     const token = localStorage.getItem('token');
     if (token) {
       setIsLoggedIn(true);
@@ -22,7 +19,8 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-// Custom hook to use AuthContext
-export const useAuth = () => useContext(AuthContext);
+export function useAuth() {
+  return useContext(AuthContext);
+}

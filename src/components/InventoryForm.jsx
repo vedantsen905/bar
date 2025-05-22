@@ -1,235 +1,211 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
-import {
-  PackagePlus,
-  Calendar,
-  ShoppingCart,
-  ClipboardSignature,
-  Receipt,
-  User,
-  StickyNote,
-} from 'lucide-react';
+import { FiPackage, FiCalendar, FiShoppingCart, FiFileText } from 'react-icons/fi';
+import { FaReceipt } from 'react-icons/fa';
 
-export default function InventoryForm({ onSubmitSuccess }) {
+export default function InventoryForm({ products, onSubmitSuccess }) {
   const [form, setForm] = useState({
     productId: '',
     date: new Date(),
-    transactionType: 'Purchase',
+    transactionType: 'Opening Stock',
     quantityBottles: '',
     purchaseVendor: '',
     purchaseReceiptNumber: '',
     recordedBy: '',
-    notes: '',
+    notes: ''
   });
 
-  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await fetch('/api/products');
-        const data = await res.json();
-        setProducts(data);
-      } catch {
-        toast.error('Failed to fetch products.');
-      }
-    };
-    fetchProducts();
-  }, []);
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleDateChange = (date) => {
-    setForm({ ...form, date });
-  };
-
-  const handleSubmit = async () => {
-    const product = products.find(p => p._id === form.productId);
-    const mlPerBottle = product ? product.mlPerBottle : 750;
-
-    const payload = {
-      ...form,
-      date: form.date.toISOString().split('T')[0],
-      quantityBottles: Number(form.quantityBottles),
-      quantityMl: Number(form.quantityBottles) * mlPerBottle,
-      timestamp: new Date().toISOString(),
-    };
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
     try {
       const res = await fetch('/api/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...form,
+          date: form.date.toISOString(),
+          quantityBottles: Number(form.quantityBottles),
+          quantityMl: Number(form.quantityBottles) * 
+            (products.find(p => p._id === form.productId)?.mlPerBottle || 750)
+        })
       });
-
-      const data = await res.json();
+      
       if (res.ok) {
-        toast.success('Inventory log saved!');
+        onSubmitSuccess?.();
         setForm({
           productId: '',
           date: new Date(),
-          transactionType: 'Purchase',
+          transactionType: 'Opening Stock',
           quantityBottles: '',
           purchaseVendor: '',
           purchaseReceiptNumber: '',
           recordedBy: '',
-          notes: '',
+          notes: ''
         });
-        onSubmitSuccess?.();
-      } else {
-        toast.error(data.error || 'Failed to save.');
       }
-    } catch {
-      toast.error('Error submitting form.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const isPurchase = form.transactionType === 'Purchase';
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-6 rounded-2xl shadow-lg max-w-md w-full space-y-4"
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="h-full flex flex-col bg-amber-50 p-6 rounded-2xl shadow-sm border border-amber-200"
     >
-      <h2 className="text-xl font-bold flex items-center gap-2">
-        <PackagePlus className="w-5 h-5" /> Add Inventory Log
-      </h2>
-
-      <div className="space-y-3">
-        <div>
-          <label className="text-sm font-medium block mb-1">Product</label>
-          <select
-            name="productId"
-            value={form.productId}
-            onChange={handleChange}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-          >
-            <option value="">Select Product</option>
-            {products.map((product) => (
-              <option key={product._id} value={product._id}>
-                {product.productName} ({product.category})
-              </option>
-            ))}
-          </select>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-semibold text-amber-900">
+          Inventory Transaction
+        </h2>
+        <div className="p-2 rounded-lg bg-amber-100">
+          <FiShoppingCart className="text-amber-600" />
         </div>
+      </div>
 
-        <div>
-          <label className="text-sm font-medium block mb-1">Date</label>
-          <div className="relative">
-            <DatePicker
-              selected={form.date}
-              onChange={handleDateChange}
-              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-            />
-            <Calendar className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium block mb-1">Transaction Type</label>
-          <select
-            name="transactionType"
-            value={form.transactionType}
-            onChange={handleChange}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-          >
-            <option value="Purchase">Purchase</option>
-            <option value="Opening Stock">Opening Stock</option>
-            <option value="Sales">Sales</option>
-            <option value="Closing Stock">Closing Stock</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium block mb-1">Quantity (in Bottles)</label>
-          <input
-            type="number"
-            name="quantityBottles"
-            value={form.quantityBottles}
-            onChange={handleChange}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-          />
-        </div>
-
-        {isPurchase && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            className="space-y-3 overflow-hidden"
-          >
-            <div>
-              <label className="text-sm font-medium block mb-1">Vendor</label>
+      <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 flex-1">
+          {/* Left Column */}
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-amber-800">Product</label>
               <div className="relative">
-                <input
-                  name="purchaseVendor"
-                  value={form.purchaseVendor}
-                  onChange={handleChange}
-                  placeholder="Vendor Name"
-                  className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-                />
-                <ShoppingCart className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
+                <select
+                  name="productId"
+                  value={form.productId}
+                  onChange={(e) => setForm({...form, productId: e.target.value})}
+                  className="appearance-none w-full bg-amber-50 border border-amber-200 rounded-lg p-2.5 pr-8 focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900"
+                  required
+                >
+                  <option value="">Select Product</option>
+                  {products.map(product => (
+                    <option key={product._id} value={product._id} className="text-amber-900">
+                      {product.productName}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium block mb-1">Receipt Number</label>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-amber-800">Date</label>
               <div className="relative">
-                <input
-                  name="purchaseReceiptNumber"
-                  value={form.purchaseReceiptNumber}
-                  onChange={handleChange}
-                  placeholder="Receipt #"
-                  className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FiCalendar className="text-amber-400" />
+                </div>
+                <DatePicker
+                  selected={form.date}
+                  onChange={(date) => setForm({...form, date})}
+                  className="w-full pl-10 pr-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900"
+                  wrapperClassName="w-full"
                 />
-                <Receipt className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
             </div>
-          </motion.div>
-        )}
 
-        <div>
-          <label className="text-sm font-medium block mb-1">Recorded By</label>
-          <div className="relative">
-            <input
-              name="recordedBy"
-              value={form.recordedBy}
-              onChange={handleChange}
-              placeholder="Recorded By"
-              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-            />
-            <User className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-amber-800">Transaction Type</label>
+              <div className="relative">
+                <select
+                  name="transactionType"
+                  value={form.transactionType}
+                  onChange={(e) => setForm({...form, transactionType: e.target.value})}
+                  className="appearance-none w-full bg-amber-50 border border-amber-200 rounded-lg p-2.5 pr-8 focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900"
+                >
+                  <option value="Purchase" className="text-amber-900">Purchase</option>
+                  <option value="Opening Stock" className="text-amber-900">Opening Stock</option>
+                  <option value="Closing Stock" className="text-amber-900">Closing Stock</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div>
-          <label className="text-sm font-medium block mb-1">Notes</label>
-          <div className="relative">
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              placeholder="Additional notes..."
-              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-            />
-            <StickyNote className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
+          {/* Right Column */}
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-amber-800">Quantity (Bottles)</label>
+              <input
+                type="number"
+                name="quantityBottles"
+                value={form.quantityBottles}
+                onChange={(e) => setForm({...form, quantityBottles: e.target.value})}
+                className="w-full bg-amber-50 border border-amber-200 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900"
+                required
+                min="1"
+              />
+            </div>
+
+            {form.transactionType === 'Purchase' && (
+              <>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-amber-800">Vendor</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiShoppingCart className="text-amber-400" />
+                    </div>
+                    <input
+                      name="purchaseVendor"
+                      value={form.purchaseVendor}
+                      onChange={(e) => setForm({...form, purchaseVendor: e.target.value})}
+                      className="w-full pl-10 pr-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-amber-800">Receipt #</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FaReceipt className="text-amber-400" />
+                    </div>
+                    <input
+                      name="purchaseReceiptNumber"
+                      value={form.purchaseReceiptNumber}
+                      onChange={(e) => setForm({...form, purchaseReceiptNumber: e.target.value})}
+                      className="w-full pl-10 pr-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-amber-800">Notes</label>
+              <textarea
+                name="notes"
+                value={form.notes}
+                onChange={(e) => setForm({...form, notes: e.target.value})}
+                className="w-full bg-amber-50 border border-amber-200 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500 focus:border-transparent text-amber-900"
+                rows="3"
+              />
+            </div>
           </div>
         </div>
 
         <button
-          onClick={handleSubmit}
-          className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition"
+          type="submit"
+          disabled={loading}
+          className="mt-4 w-full py-3 px-6 bg-gradient-to-r from-amber-600 to-amber-500 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 hover:opacity-90 disabled:opacity-50"
         >
-          Submit Inventory
+          Submit Transaction
         </button>
-      </div>
+      </form>
     </motion.div>
   );
 }

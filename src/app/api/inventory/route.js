@@ -14,10 +14,23 @@ export async function POST(req) {
   await connectDB();
   const body = await req.json();
 
+  // Validate required fields
+  if (!body.productId || !body.quantityBottles || !body.date || !body.transactionType) {
+    return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400 });
+  }
+
   try {
+    // Ensure product exists
+    const product = await Product.findById(body.productId);
+    if (!product) {
+      return new Response(JSON.stringify({ error: 'Product not found' }), { status: 404 });
+    }
+
+    // Create the inventory log
     const log = await InventoryLog.create(body);
     return Response.json(log);
   } catch (err) {
+    console.error("Error saving inventory log:", err); // Log the error
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }
