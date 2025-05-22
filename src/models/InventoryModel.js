@@ -8,4 +8,5 @@ const inventorySchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-export const Inventory = mongoose.models.Inventory || mongoose.model('Inventory', inventorySchema);
+  const Inventory = mongoose.models.Inventory || mongoose.model('Inventory', inventorySchema);
+export default Inventory;
